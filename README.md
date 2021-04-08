@@ -136,7 +136,7 @@ Which will return the following stacks:
 * `ab-testing-pipeline`
 * `ab-testing-service-catalog`
 
-3. Deploy the API
+3. Deploy the API and Testing infrastructure
 
 Use CDK to deploy the API and Testing infrastructure which creates IAM roles with least privilege to access resources.
 
@@ -164,7 +164,9 @@ Run the following command to deploy the API and testing infrastructure, optional
 cdk deploy ab-testing-api
 ```
 
-This stack will ask you to confirm any changes, and output the `ApiEndpoint` which you will need for the pipeline stack.
+This stack will ask you to confirm any changes, and output the `RegisterLambda` which you will provide to the MLOps Project, and the `ApiEndpoint` which you will provide to the A/B Testing sample notebook.
+
+Amazon SageMaker Studio projects will be granted access to invoke the Register Lambda, so if you are seeing errors running the above command ensure you have [Enable SageMaker project templates for Studio users](https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-projects-studio-updates.html).
 
 ## Create the SageMaker MLOps Project Template
 
