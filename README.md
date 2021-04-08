@@ -20,7 +20,7 @@ We will be creating an AWS Service Catalog template to deploy a new MLOps Projec
 To get started first, clone this repository.
 
 ```
-git clonehttps://github.com/aws-samples/amazon-sagemaker-ab-testing-pipeline.git
+git clone https://github.com/aws-samples/amazon-sagemaker-ab-testing-pipeline.git
 cd amazon-sagemaker-ab-testing-pipeline
 ```
 
@@ -166,7 +166,7 @@ cdk deploy ab-testing-api
 
 This stack will ask you to confirm any changes, and output the `ApiEndpoint` which you will need for the pipeline stack.
 
-## Create the SageMaker MLOps Project Template.
+## Create the SageMaker MLOps Project Template
 
 1. Generate the Project Template (Optional)
 
@@ -208,7 +208,7 @@ cdk deploy ab-testing-service-catalog \
 
 This stack will output the `CodeCommitSeedBucket` and `CodeCommitSeedKey` which you will need later for the pipeline.
 
-### Create Deployment Pipeline with Amazon SageMaker Studio (Alternative)
+### Create MLOps Project Template manually (Alternative)
 
 If you have an existing AWS Service Catalog Portfolio, or would like to create the Product manually, follow these steps:
 

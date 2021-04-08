@@ -39,7 +39,6 @@ class ApiStack(core.Stack):
         assignment_table_name = f"{api_name}-assignment-{stage_name}"
         metrics_table_name = f"{api_name}-metrics-{stage_name}"
         delivery_stream_name = f"{api_name}-events-{stage_name}"
-        log_bucket_name = f"{api_name}-logs-{stage_name}-{self.region}"
         log_stream_name = "ApiEvents"
 
         assignment_table = aws_dynamodb.Table(
@@ -209,7 +208,6 @@ class ApiStack(core.Stack):
         s3_logs = aws_s3.Bucket(
             self,
             "S3Logs",
-            bucket_name=log_bucket_name,
             removal_policy=core.RemovalPolicy.DESTROY,
         )
 
