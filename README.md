@@ -104,6 +104,10 @@ This will enabling sample request to visualize the access patterns and drill int
 
 If this is the first time you have run the CDK, you may need to [Bootstrap](https://docs.aws.amazon.com/cdk/latest/guide/bootstrapping.html) your account.  If you have multiple deployment targets see also [Specifying up your environment](https://docs.aws.amazon.com/cdk/latest/guide/cli.html#cli-environment) in the CDK documentation.
 
+```
+cdk bootstrap
+```
+
 To bootstrap and deploy, you will require permissions create AWS CloudFormation Stacks and the associated resources for your current execution role.
 
 If you have cloned this notebook into SageMaker Studio, you can find your user's role by browsing to the Studio dashboard.
@@ -119,10 +123,6 @@ Browse to the [IAM](https://console.aws.amazon.com/iam) section in the console, 
 * `AWSServiceCatalogAdminFullAccess`
 
 ![\[AB Testing Pipeline Execution Role\]](docs/ab-testing-pipeline-iam-role.png)
-
-```
-cdk bootstrap
-```
 
 You should now be able to list the stacks by running:
 
