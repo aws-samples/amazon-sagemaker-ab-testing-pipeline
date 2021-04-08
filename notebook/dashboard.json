@@ -1,0 +1,95 @@
+{
+    "widgets": [
+        {
+            "height": 7,
+            "width": 8,
+            "y": 0,
+            "x": 0,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ "AWS/Firehose", "IncomingRecords", "DeliveryStreamName", "ab-testing-events-dev", { "id": "m1", "label": "IncomingRecords", "yAxis": "left" } ]
+                ],
+                "region": "us-west-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "stat": "Sum",
+                "title": "Kinesis Firehose Incoming Records",
+                "period": 300,
+                "yAxis": {
+                    "left": {
+                        "showUnits": false,
+                        "label": "Count",
+                        "min": 0
+                    },
+                    "right": {
+                        "min": 0,
+                        "label": "Puts/Sec",
+                        "showUnits": false
+                    }
+                }
+            }
+        },
+        {
+            "height": 7,
+            "width": 8,
+            "y": 0,
+            "x": 8,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ { "expression": "METRICS(\"m1\") * 100", "id": "e1", "region": "us-west-1" } ],
+                    [ "AWS/Firehose", "DeliveryToS3.Success", "DeliveryStreamName", "ab-testing-events-dev", { "id": "m1", "visible": false } ]
+                ],
+                "region": "us-west-1",
+                "view": "timeSeries",
+                "stacked": false,
+                "stat": "Average",
+                "title": "Kinesis Firehose Delivery to S3",
+                "period": 300,
+                "yAxis": {
+                    "left": {
+                        "showUnits": false,
+                        "label": "Count"
+                    },
+                    "right": {
+                        "label": "Success Rate",
+                        "min": 0,
+                        "max": 100,
+                        "showUnits": false
+                    }
+                }
+            }
+        },
+        {
+            "height": 7,
+            "width": 8,
+            "y": 0,
+            "x": 16,
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    [ { "expression": "SEARCH('{aws/sagemaker/Endpoints/ab-testing,EndpointName,VariantName} MetricName=\"Rewards\"', 'Sum', 300)", "label": "", "id": "reward", "region": "us-west-1", "yAxis": "right" } ],
+                    [ { "expression": "SEARCH('{aws/sagemaker/Endpoints/ab-testing,EndpointName,VariantName} MetricName=\"Invocations\"', 'Sum', 300)", "label": "", "id": "invocation", "region": "us-west-1", "yAxis": "left" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "us-west-1",
+                "stat": "Sum",
+                "period": 300,
+                "title": "A/B Testing Metrics by Endpoint Variants",
+                "yAxis": {
+                    "right": {
+                        "min": 0,
+                        "label": "Rewards",
+                        "showUnits": false
+                    },
+                    "left": {
+                        "label": "Invocations",
+                        "showUnits": false
+                    }
+                }
+            }
+        }
+    ]
+}

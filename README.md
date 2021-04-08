@@ -1,11 +1,331 @@
-## My Project
 
-TODO: Fill this README out!
+# Amazon SageMaker A/B Testing Pipeline 
 
-Be sure to:
+This project will demonstrate how to setup an Amazon SageMaker MLOps pipeline for support A/B Testing of machine learning models.
 
-* Change the title in this README
-* Edit your repository description on GitHub
+The A/B Testing pipeline architecture consists of 3 main elements:
+
+1. Amazon API Gateway to register and invoke SageMaker endpoints with consistent variant for a user based on A/B algorithm selection.
+2. Infrastructure for storing user assignment and metrics in DynamoDB, streaming logs via Kinesis Firehose to S3
+3. Amazon SageMaker multi-variant endpoint.
+
+![\[AB Testing Architecture\]](docs/ab-testing-pipeline-architecture.png)
+
+We will be creating an AWS Service Catalog template to deploy a new MLOps Project using AWS CodePipeline.
+
+![\[AB Testing Pipeline\]](docs/ab-testing-pipeline-deployment.png)
+
+## Get Started
+
+To get started first, clone this repository.
+
+```
+git clonehttps://github.com/aws-samples/amazon-sagemaker-ab-testing-pipeline.git
+cd amazon-sagemaker-ab-testing-pipeline
+```
+
+### Install the AWS CDK
+
+This project uses the AWS Cloud Development Kit [CDK](https://aws.amazon.com/cdk/).
+To [get started](https://docs.aws.amazon.com/cdk/latest/guide/getting_started.html) with CDK you need [Node.js](https://nodejs.org/en/download/) 10.13.0 or later.
+
+Install the AWS CDK Toolkit globally using the following Node Package Manager command.
+
+```
+npm install -g aws-cdk
+```
+
+Run the following command to verify correct installation and print the version number of the AWS CDK.
+
+```
+cdk --version
+```
+
+### Setup Python Environment for CDK
+
+This project uses CDK with python bindings to deploy resources to your AWS account.
+
+The `cdk.json` file tells the CDK Toolkit how to execute your app.
+
+This project is set up like a standard Python project.  The initialization
+process also creates a virtualenv within this project, stored under the `.venv`
+directory.  To create the virtualenv it assumes that there is a `python3`
+(or `python` for Windows) executable in your path with access to the `venv`
+package. If for any reason the automatic creation of the virtualenv fails,
+you can create the virtualenv manually.
+
+To manually create a virtualenv on MacOS and Linux:
+
+```
+$ python3 -m venv .venv
+```
+
+After the init process completes and the virtualenv is created, you can use the following
+step to activate your virtualenv.
+
+```
+$ source .venv/bin/activate
+```
+
+If you are a Windows platform, you would activate the virtualenv like this:
+
+```
+% .venv\Scripts\activate.bat
+```
+
+Once the virtualenv is activated, you can install the required dependencies.
+
+```
+$ pip install -r requirements.txt
+```
+
+## Create the API and testing infrastructure
+
+In this section you will setup the API and testing infrastructure which includes
+* Amazon DynamoDB table for user variant assignment.
+* Amazon DynamoDB table for variant metrics.
+* Amazon Kinesis Firehose, S3 Bucket and AWS Lambda for processing events.
+
+Follow are the steps require to setup the infrastructure.
+
+1. Install layers
+
+In order to support X-RAY as part of our [python function](https://github.com/awsdocs/aws-lambda-developer-guide/tree/main/sample-apps/blank-python) we will require additional python libraries.  Run the following command to pip install the [AWS X-Ray SDK for Python](https://docs.aws.amazon.com/xray/latest/devguide/xray-sdk-python.html) into the `layers` folder.
+
+```
+sh install_layers.sh
+```
+
+This will enabling sample request to visualize the access patterns and drill into any specific errors.
+
+![\[AB Testing Pipeline X-Ray\]](docs/ab-testing-pipeline-xray.png)
+
+2. Bootstrap the CDK
+
+If this is the first time you have run the CDK, you may need to [Bootstrap](https://docs.aws.amazon.com/cdk/latest/guide/bootstrapping.html) your account.  If you have multiple deployment targets see also [Specifying up your environment](https://docs.aws.amazon.com/cdk/latest/guide/cli.html#cli-environment) in the CDK documentation.
+
+To bootstrap and deploy, you will require permissions create AWS CloudFormation Stacks and the associated resources for your current execution role.
+
+If you have cloned this notebook into SageMaker Studio, you can find your user's role by browsing to the Studio dashboard.
+
+![\[AB Testing Pipeline Execution Role\]](docs/ab-testing-pipeline-execution-role.png)
+
+Browse to the [IAM](https://console.aws.amazon.com/iam) section in the console, and find this role.  Then attach the following managed policies.
+
+* `AWSCloudFormationFullAccess`
+* `AmazonAPIGatewayAdministrator`
+* `AWSLambda_FullAccess`
+* `AmazonKinesisFullAccess`
+* `AWSServiceCatalogAdminFullAccess`
+
+![\[AB Testing Pipeline Execution Role\]](docs/ab-testing-pipeline-iam-role.png)
+
+```
+cdk bootstrap
+```
+
+You should now be able to list the stacks by running:
+
+```
+cdk list
+```
+
+Which will return the following stacks:
+
+* `ab-testing-api`
+* `ab-testing-pipeline`
+* `ab-testing-service-catalog`
+
+3. Deploy the API
+
+Use CDK to deploy the API and Testing infrastructure which creates IAM roles with least privilege to access resources.
+
+Follow are a list of context values that are provided in the `cdk.json`, which can also be override by passing `-c context=value`:
+
+| Property                  | Description                                                                                                                                                     | Default                            |
+|---------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|
+| `api_name`                | The API Gateway Name                                                                                                                                            | "ab-testing"                       |
+| `stage_name`              | The stage namespace for resource and API Gateway path                                                                                                           | "dev"                              |
+| `endpoint_filter`         | A prefix to filter which Amazon SageMaker endpoints the API can invoke                                                                                          | "*"                                |
+| `api_lambda_memory`       | The [lambda memory](https://docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html) allocation for API endpoint.                                        | 768                                |
+| `api_lambda_timeout`      | The lambda timeout for the API endpoint.                                                                                                                        | 10                                 |
+| `metrics_lambda_memory`   | The [lambda memory](https://docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html) allocated for metrics processing Lambda                             | 768                                |
+| `metrics_lambda_timeout`  | The lambda timeout for the processing lambda.                                                                                                                   | 10                                 |
+| `dynamodb_read_capacity`  | The [Read Capacity](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadWriteCapacityMode.html) for the DynamoDB tables             | 5                                  |
+| `dynamodb_write_capacity` | The [Write Capacity](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadWriteCapacityMode.html) for the DynamoDB tables            | 5                                  |
+| `delivery_sync`           | When set to `true`, metrics will be written directly to DynamoDB in real-time, instead of written to Amazon Kinesis for processing (recommend for testing only) | false                              |
+| `firehose_interval`       | The [buffering](https://docs.aws.amazon.com/firehose/latest/dev/create-configure.html) interval in seconds at which the firehose will flush events to S3.       | 60                                 |
+| `firehose_mb_size`        | The buffering size in MB before the firehose will flush its events to S3.                                                                                       | 1                                  |
+| `log_level`               | Logging level for AWS Lambda functions                                                                                                                          | "INFO"                             |
+
+Run the following command to deploy the API and testing infrastructure, optionally override context values.
+
+```
+cdk deploy ab-testing-api
+```
+
+This stack will ask you to confirm any changes, and output the `ApiEndpoint` which you will need for the pipeline stack.
+
+## Create the SageMaker MLOps Project Template.
+
+1. Generate the Project Template (Optional)
+
+The `ab-testing-pipeline.yml` is included as part of this distribution, and doesn't require updating unless you change the `pipeline_stack.py` implementation.
+
+To generate a new pipeline you can run the following command.
+
+```
+cdk synth ab-testing-pipeline --path-metadata=false > ab-testing-pipeline.yml
+```
+
+This template will output a new Policy to attach to the `AmazonSageMakerServiceCatalogProductsUseRole` service role.  This policy is not required as this managed role already has these permissions.    In order for this to run within Amazon SageMaker Studio, you will need to remove this policy.  I recommend you diff the original to see where changes need to be made.  If there are additional roles or policies the project might not be validate when used inside of Amazon SageMaker Studio.
+
+```
+git diff ab-testing-pipeline.yml
+```
+
+2. Deploy the Project Template
+
+Use CDK to create or update the AWS Service Catalog **Portfolio** and **Product** for the SageMaker Project template.
+
+Following are CloudFormation parameters for this stack.
+
+| Parameter          | Description                                           | Default                            |
+|--------------------|-------------------------------------------------------|------------------------------------|
+| `ExecutionRoleArn` | The SageMaker Studio execution role                   |                                    |
+| `PortfolioName`    | The portfolio name to in AWS Service Catalog.         | "SageMaker Organization Templates" |
+| `PortfolioOwner`   | The portfolio owner in AWS Service Catalog.           | "administrator"                    |
+| `ProductVersion`   | The product version to create in AWS Service Catalog. | "1.0"                              |
+
+Run the following command to create the SageMaker Project template, making sure you provide the required `ExecutionRoleArn`.  You can copy this from your SageMaker Studio dashboard as show above.
+
+```
+export EXECUTION_ROLE_ARN=<<sagemaker-studio-execution-role>>
+cdk deploy ab-testing-service-catalog \
+    --parameters ExecutionRoleArn=$EXECUTION_ROLE_ARN \
+    --parameters ProductVersion=1.0
+```
+
+This stack will output the `CodeCommitSeedBucket` and `CodeCommitSeedKey` which you will need later for the pipeline.
+
+### Create Deployment Pipeline with Amazon SageMaker Studio (Alternative)
+
+If you have an existing AWS Service Catalog Portfolio, or would like to create the Product manually, follow these steps:
+
+1. Sign in to the console with the data science account.
+2. On the AWS Service Catalog console, under **Administration**, choose **Portfolios**.
+3. Choose **Create a new portfolio**.
+4. Name the portfolio `SageMaker Organization Templates`.
+5. Download the [AB testing template](ab-testing-pipeline.yml) to your computer.
+6. Choose the new portfolio.
+7. Choose **Upload a new product.**
+8. For **Product name**¸ enter `A/B Testing Deployment Pipeline`.
+9. For **Description**, enter `Amazon SageMaker Project for A/B Testing models`.
+10. For **Owner**, enter your name.
+11. Under **Version details**, for **Method**, choose **Use a template file**.
+12. Choose **Upload a template**.
+13. Upload the template you downloaded.
+14. For **Version title**, enter `1.0`.
+
+The remaining parameters are optional.
+
+15. Choose **Review**.
+16. Review your settings and choose **Create product**.
+17. Choose **Refresh** to list the new product.
+18. Choose the product you just created.
+19. On the **Tags** tab, add the following tag to the product:
+  - **Key** – `sagemaker:studio-visibility`
+  - **Value** – `True`
+
+Finally we need to add launch constraint and role permissions.
+
+20. On the **Constraints** tab, choose Create constraint.
+21. For **Product**, choose **AB Testing Pipeline** (the product you just created).
+22. For **Constraint type**, choose **Launch**.
+23. Under **Launch Constraint**, for **Method**, choose **Select IAM role**.
+24. Choose **AmazonSageMakerServiceCatalogProductsLaunchRole**.
+25. Choose **Create**.
+26. On the **Groups, roles, and users** tab, choose **Add groups, roles, users**.
+27. On the **Roles** tab, select the role you used when configuring your SageMaker Studio domain.
+28. Choose **Add access**.
+
+If you don’t remember which role you selected, in your data science account, go to the SageMaker console and choose **Amazon SageMaker Studio**. In the Studio **Summary** section, locate the attribute **Execution role**. Search for the name of this role in the previous step.
+
+You’re done! Now it’s time to create a project using this template.
+
+## Creating your project
+
+Once your MLOps project template is registered in AWS Service Catalog you can create a project using your new template.
+
+1. Sign in to the console with the data science account.
+2. On the SageMaker console, open **SageMaker Studio** with your user.
+3. Choose the **Components and registries**
+4. On the drop-down menu, choose **Projects**.
+5. Choose **Create project**.
+
+![\[Select Template\]](docs/ab-testing-pipeline-sagemaker-template.png)
+
+On the Create project page, SageMaker templates is chosen by default. This option lists the built-in templates. However, you want to use the template you published for the A/B Testing Deployment Pipeline.
+
+6. Choose **Organization templates**.
+7. Choose **A/B Testing Deployment Pipeline**.
+8. Choose **Select project template**.
+9. In the **Project details** section, for **Name**, enter **ab-testing-pipeline**.
+  - The project name must have 32 characters or fewer.
+10. In the Project template parameters, provide the *Repository Name** you created previously eg:
+  - For **StageName**, enter `dev` 
+  - For **RegisterLambda**, enter the `RegisterLambda` output from the `ab-testing-api` stack
+  - For **CodeCommitSeedBucket**, enter the `CodeCommitSeedBucket` output from the `ab-testiing-service-catalog` stack
+  - For **CodeCommitSeedKey**, enter the `CodeCommitSeedKey` output from the `ab-testiing-service-catalog` stack
+11. Choose Create project.
+
+![\[Create Project\]](docs/ab-testing-pipeline-sagemaker-project.png)
+
+`NOTE`: If you have recently updated your AWS Service Catalog Project, you may need to refresh SageMaker Studio to ensure it picks up the latest version of your template.
+
+## Running the A/B Test
+
+In the following sections, you will learn how to **Train**, **Deploy** and **Simulate** a test against our A/B Testing Pipeline.
+
+### Training a Model
+
+Now that your project is ready, it’s time to train, register and approve a model.
+
+1. Download the [Sample Notebook](notebook/mab-reviews-helpfulness.ipynb) to use for this walk-through.
+2. Choose the **Upload file** button
+3. Choose the Jupyter notebook you downloaded and upload it.
+4. Choose the notebook to open a new tab.
+
+![\[Upload File\]](docs/ab-testing-pipeline-upload-file.png)
+
+This notebook will step you through the process of 
+1. Download a dataset
+2. Create and Run an Amazon SageMaker Pipeline
+3. Approve the model.
+4. Create a Amazon SageMaker Tuning Job.
+5. Select the best model, register and approve the second model.
+
+### Deploying the Multi-Variant Pipeline.
+
+Once the second model has been approved, the MLOps deployment pipeline will run.
+
+See the [Deployment Pipeline](deployment_pipeline) for more information on the stages to run.
+
+### Running an A/B Testing simulation
+
+With the Deployment Pipeline complete, you will be able to continue with the next stage:
+1. Test the multi-variant endpoint
+2. Evaluate the accuracy of the models, and visualize the confusion matrix and ROC Curves
+3. Test the API by simulating a series of `invocation`, and recording reward `conversion`.
+4. Plot the cumulative reward, and reward rate.
+5. Plot the beta distributions of the course of the test.
+6. Calculate the statistical significance of the test.
+
+## Want to know more?
+
+The [FAQ](FAQ.md) page has some answers to questions on the design principals of this sample. 
+
+See also the [OPERATIONS](OPERATIONS.md) page for information on configuring experiments, and the API interface.
 
 ## Security
 
@@ -13,5 +333,4 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 
 ## License
 
-This library is licensed under the MIT-0 License. See the LICENSE file.
-
+This library is licensed under the MIT-0 License. See the [LICENSE](LICENSE) file.

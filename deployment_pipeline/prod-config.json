@@ -1,0 +1,25 @@
+{
+    "stage_name": "prod",
+    "strategy": "ThompsonSampling",
+    "warmup": 100,
+    "instance_count": 2,
+    "instance_type": "ml.c5.large",
+    "champion_variant_config": {
+        "model_package_version": 1,
+        "variant_name": "Champion",
+        "instance_count": 3,
+        "instance_type": "ml.m5.xlarge"
+    },
+    "challenger_variant_config": [
+        {
+            "model_package_version": 1,
+            "variant_name": "Challenger1",
+            "instance_type": "ml.c5.xlarge"
+        },
+        {
+            "model_package_version": 2,
+            "variant_name": "Challenger2",
+            "instance_count": 1
+        }
+    ]
+}
