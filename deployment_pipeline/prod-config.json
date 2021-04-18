@@ -1,7 +1,8 @@
 {
     "stage_name": "prod",
-    "strategy": "ThompsonSampling",
+    "strategy": "EpsilonGreedy",
     "warmup": 100,
+    "epsilon": 0.1,
     "instance_count": 2,
     "instance_type": "ml.c5.large",
     "champion_variant_config": {

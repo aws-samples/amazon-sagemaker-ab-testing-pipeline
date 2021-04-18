@@ -23,10 +23,6 @@ Parameters:
     Type: String
     Description: The optional s3 seed key
     MinLength: 1
-  RegisterLambda:
-    Type: String
-    Description: The AWS Lambda to invoke when registering this model
-    MinLength: 1
 Resources:
   CodeRepo:
     Type: AWS::CodeCommit::Repository
@@ -55,8 +51,6 @@ Resources:
         - Key: sagemaker:project-name
           Value:
             Ref: SageMakerProjectName
-    Metadata:
-      aws:cdk:path: ab-testing-pipeline/CodeRepo
   CdkBuild455F642E:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -131,76 +125,6 @@ Resources:
             - Ref: SageMakerProjectName
             - -cdk-
             - Ref: StageName
-    Metadata:
-      aws:cdk:path: ab-testing-pipeline/CdkBuild/Resource
-  RegisterBuild8D2EA4DC:
-    Type: AWS::CodeBuild::Project
-    Properties:
-      Artifacts:
-        Type: CODEPIPELINE
-      Environment:
-        ComputeType: BUILD_GENERAL1_SMALL
-        EnvironmentVariables:
-          - Name: SAGEMAKER_PROJECT_NAME
-            Type: PLAINTEXT
-            Value:
-              Ref: SageMakerProjectName
-          - Name: STAGE_NAME
-            Type: PLAINTEXT
-            Value:
-              Ref: StageName
-          - Name: REGISTER_LAMBDA
-            Type: PLAINTEXT
-            Value:
-              Ref: RegisterLambda
-        Image: aws/codebuild/standard:1.0
-        ImagePullCredentialsType: CODEBUILD
-        PrivilegedMode: false
-        Type: LINUX_CONTAINER
-      ServiceRole:
-        Fn::Join:
-          - ""
-          - - "arn:"
-            - Ref: AWS::Partition
-            - ":iam::"
-            - Ref: AWS::AccountId
-            - :role/service-role/AmazonSageMakerServiceCatalogProductsUseRole
-      Source:
-        BuildSpec: >-
-          {
-            "version": "0.2",
-            "phases": {
-              "build": {
-                "commands": [
-                  "python register.py > output.txt"
-                ]
-              }
-            },
-            "artifacts": {
-              "files": [
-                "output.txt"
-              ]
-            },
-            "environment": {
-              "buildImage": {
-                "type": "LINUX_CONTAINER",
-                "defaultComputeType": "BUILD_GENERAL1_SMALL",
-                "imageId": "aws/codebuild/amazonlinux2-x86_64-standard:3.0",
-                "imagePullPrincipalType": "CODEBUILD"
-              }
-            }
-          }
-        Type: CODEPIPELINE
-      EncryptionKey: alias/aws/s3
-      Name:
-        Fn::Join:
-          - ""
-          - - sagemaker-
-            - Ref: SageMakerProjectName
-            - -register-
-            - Ref: StageName
-    Metadata:
-      aws:cdk:path: ab-testing-pipeline/RegisterBuild/Resource
   S3Artifact80610462:
     Type: AWS::S3::Bucket
     Properties:
@@ -215,8 +139,6 @@ Resources:
             - Ref: AWS::Region
     UpdateReplacePolicy: Delete
     DeletionPolicy: Delete
-    Metadata:
-      aws:cdk:path: ab-testing-pipeline/S3Artifact/Resource
   PipelineC660917D:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -292,22 +214,6 @@ Resources:
               Name: SageMaker_CFN_Deploy
               RunOrder: 1
           Name: Deploy
-        - Actions:
-            - ActionTypeId:
-                Category: Build
-                Owner: AWS
-                Provider: CodeBuild
-                Version: "1"
-              Configuration:
-                ProjectName:
-                  Ref: RegisterBuild8D2EA4DC
-              InputArtifacts:
-                - Name: Artifact_Source_CodeCommit_Source
-              Name: Register_Build
-              OutputArtifacts:
-                - Name: Artifact_Register_Register_Build
-              RunOrder: 1
-          Name: Register
       ArtifactStore:
         Location:
           Ref: S3Artifact80610462
@@ -319,8 +225,6 @@ Resources:
             - Ref: SageMakerProjectName
             - -pipeline-
             - Ref: StageName
-    Metadata:
-      aws:cdk:path: ab-testing-pipeline/Pipeline/Resource
   DeployRule0F8E909D:
     Type: AWS::Events::Rule
     Properties:
@@ -369,8 +273,6 @@ Resources:
                 - ":iam::"
                 - Ref: AWS::AccountId
                 - :role/service-role/AmazonSageMakerServiceCatalogProductsUseRole
-    Metadata:
-      aws:cdk:path: ab-testing-pipeline/DeployRule/Resource
   CodeRule663E3DC0:
     Type: AWS::Events::Rule
     Properties:
@@ -430,14 +332,10 @@ Resources:
                 - ":iam::"
                 - Ref: AWS::AccountId
                 - :role/service-role/AmazonSageMakerServiceCatalogProductsUseRole
-    Metadata:
-      aws:cdk:path: ab-testing-pipeline/CodeRule/Resource
   CDKMetadata:
     Type: AWS::CDK::Metadata
     Properties:
       Analytics: v2:deflate64:H4sIAAAAAAAAE0WN0YrCMBBFv8X3OCIVln0T/YFSvyBOR3ZskynJRCkh/742Lfh0L3M5Z47we4Lj7mzfcY/9cMgogSDf1OJgrg/f2mAdKQXTUZQUkMxVfNSQUJf9e334z9CzsvhiFl1m6yC3MjLOVVVbMSg9oTjHClUwSWSVMNfhnnjsPxRPNLKnNsiT1k9bLSY2kC8JB6rnta3WaaO+fAW3Xgy9yGuE3KWxLkuWUkw765/4QwM/0OyekXkfkld2BN2a//2ekvEmAQAA
-    Metadata:
-      aws:cdk:path: ab-testing-pipeline/CDKMetadata/Default
     Condition: CDKMetadataAvailable
 Conditions:
   CDKMetadataAvailable:
