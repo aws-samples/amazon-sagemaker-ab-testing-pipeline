@@ -99,7 +99,7 @@ def lambda_handler(event, context):
         # If this endpoint does not match prefix or not enabled return a status code of Not Modified (304)
         endpoint_name = event["detail"]["EndpointName"]
         endpoint_tags = event["detail"]["Tags"]
-        endpoint_enabled = endpoint_tags["ab-testing:enabled"] == "true"
+        endpoint_enabled = endpoint_tags.get("ab-testing:enabled") == "true"
         if not (endpoint_name.startswith(ENDPOINT_PREFIX) and endpoint_enabled):
             logger.info(
                 f"Endpoint: {endpoint_name} not enabled for prefix: {ENDPOINT_PREFIX}"
