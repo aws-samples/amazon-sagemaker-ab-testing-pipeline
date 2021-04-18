@@ -111,7 +111,7 @@ def lambda_handler(event, context):
         if endpoint_status == "DELETING":
             result, status_code = handle_delete(endpoint_name)
         elif endpoint_status == "IN_SERVICE":
-            strategy = endpoint_tags["ab-testing:stategy"]
+            strategy = endpoint_tags["ab-testing:strategy"]
             epsilon = float(endpoint_tags["ab-testing:epsilon"])
             warmup = int(endpoint_tags["ab-testing:warmup"])
             result, status_code = handle_register(

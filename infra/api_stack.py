@@ -190,6 +190,9 @@ class ApiStack(core.Stack):
             targets=[targets.LambdaFunction(lambda_register)],
         )
 
+        # Return the register lambda function as output
+        core.CfnOutput(self, "RegisterLambda", value=lambda_register.function_name)
+
         # Get cloudwatch put metrics policy ()
         cloudwatch_metric_policy = aws_iam.PolicyStatement(
             actions=["cloudwatch:PutMetricData"], resources=["*"]

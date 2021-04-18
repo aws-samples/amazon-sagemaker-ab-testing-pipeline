@@ -45,7 +45,7 @@ with open(f"{stage_name}-config.json", "r") as f:
     # Append tags for ab-testing
     tags += [
         core.CfnTag(key="ab-testing:enabled", value="true"),
-        core.CfnTag(key="ab-testing:stategy", value=deployment_config.strategy),
+        core.CfnTag(key="ab-testing:strategy", value=deployment_config.strategy),
         core.CfnTag(key="ab-testing:epsilon", value=str(deployment_config.epsilon)),
         core.CfnTag(key="ab-testing:warmup", value=str(deployment_config.warmup)),
     ]
