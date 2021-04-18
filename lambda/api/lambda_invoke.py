@@ -214,7 +214,7 @@ def lambda_handler(event, context):
         else:
             # Get inference id and user id from request, or generate a new ones
             inference_id = body.get("inference_id", str(uuid.uuid4()))
-            user_id = body.get("user_id", str(uuid.uuid4()))
+            user_id = str(body.get("user_id", uuid.uuid4()))
 
             if endpoint_variant is None:
                 try:
