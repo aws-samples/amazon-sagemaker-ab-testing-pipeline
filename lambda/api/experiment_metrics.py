@@ -32,7 +32,7 @@ class ExperimentMetrics:
         warmup: int,
         timestamp: int = int(time()),
     ):
-        logging.debug("Get endpoint variants")
+        logging.debug(f"Get metrics for endpoint: {endpoint_name}")
         table = self.dynamodb.Table(self.metrics_table)
         # Format variants as a dictionary for persistence with only the initial weight
         variant_names = [v["variant_name"] for v in endpoint_variants]
@@ -62,6 +62,24 @@ class ExperimentMetrics:
             },
             ReturnValues="ALL_OLD",
             ReturnConsumedCapacity="TOTAL",
+        )
+        return response
+
+    def delete_endpoint(
+        self,
+        endpoint_name: str,
+        timestamp: int = int(time()),
+    ):
+        logging.debug(f"Delete endpoint: {endpoint_name}")
+        table = self.dynamodb.Table(self.metrics_table)
+        # Set the deleted_at property in DDB for this endpoint
+        response = table.update_item(
+            Key={"endpoint_name": endpoint_name},
+            UpdateExpression="SET deleted_at = :now ",
+            ExpressionAttributeValues={
+                ":now": timestamp,
+            },
+            ReturnValues="UPDATED_NEW",
         )
         return response
 

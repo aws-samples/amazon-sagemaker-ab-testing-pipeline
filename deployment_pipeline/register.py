@@ -24,7 +24,20 @@ logger.info(f"Register endpoint: {endpoint_name} with lambda: {register_lambda}"
 # Get the config and include with endpoint to register this model
 with open(f"{stage_name}-config.json", "r") as f:
     j = json.load(f)
-    event = json.dumps({"endpoint_name": endpoint_name, **j})
+    event = json.dumps({
+        'source': 'aws.sagemaker',
+        'detail-type': 'SageMaker Endpoint State Change',
+        'detail': {
+            'EndpointName': endpoint_name,
+            'EndpointStatus': 'IN_SERVICE',
+            'Tags': {
+                'ab-testing:enabled': 'true',
+                'ab-testing:strategy': j.get('strategy', 'ThompsonSampling'),
+                'ab-testing:epsilon': str(j.get('epsilon', 0.1)),
+                'ab-testing:warmup': str(j.get('warmup', 0)),
+            }
+        }
+    })
     response = lambda_client.invoke(
         FunctionName=register_lambda,
         InvocationType="RequestResponse",

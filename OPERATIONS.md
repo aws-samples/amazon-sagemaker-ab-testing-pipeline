@@ -4,8 +4,7 @@ Having created the A/B Testing Deployment Pipeline, this operations manual provi
 
 ## A/B Testing for Machine Learning models
 
-Successful A/B Testing for machine learning models requires measuring how effective predictions are against end users.  
-It is important to be able to identify users consistently and be able to attribute success actions against the model predictions back to users.
+Successful A/B Testing for machine learning models requires measuring how effective predictions are against end users.   It is important to be able to identify users consistently and be able to attribute success actions against the model predictions back to users.
 
 ### Conversion Metrics
 
@@ -46,7 +45,11 @@ The configuration is stored in the CodeCommit source repository by stage name eg
 * `epsilon` - The epsilon parameter used by the `EpsilonGreedy` strategy.
 * `warmup` - The number of invocations to warm up before applying the strategy.
 
-In addition to the above, you must specify the `champion` and `challenger` model variants for the deployment.
+In addition to the above, you must specify the `champion` and `challenger` model variants for the deployment.  
+
+These will be loaded from the two Model Package Groups in the registry that include the project name and suffixed with `champion` or `challenger` for example project name `ab-testing-pipeline` these model package groups in the sample notebook:
+
+![\[Model Registry\]](docs/ab-testing-pipeline-model-registry.png)
 
 **Latest Approved Versions**
 

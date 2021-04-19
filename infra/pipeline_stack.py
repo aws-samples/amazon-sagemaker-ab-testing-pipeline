@@ -66,13 +66,6 @@ class PipelineStack(core.Stack):
             description="The optional s3 seed key",
             min_length=1,
         )
-        register_lambda = core.CfnParameter(
-            self,
-            "RegisterLambda",
-            type="String",
-            description="The AWS Lambda to invoke when registering this model",
-            min_length=1,
-        )
 
         # Get the service catalog role for all permssions (if None CDK will create new roles)
         # CodeBuild and CodePipeline resources need to start with "sagemaker-" to be within default policy
@@ -163,47 +156,8 @@ class PipelineStack(core.Stack):
             },
         )
 
-        register_build = codebuild.PipelineProject(
-            self,
-            "RegisterBuild",
-            project_name="sagemaker-{}-register-{}".format(
-                project_name.value_as_string, stage_name.value_as_string
-            ),
-            role=service_catalog_role,
-            build_spec=codebuild.BuildSpec.from_object(
-                dict(
-                    version="0.2",
-                    phases=dict(
-                        build=dict(
-                            commands=[
-                                "python register.py > output.txt",
-                            ]
-                        ),
-                    ),
-                    artifacts={
-                        "files": ["output.txt"],
-                    },
-                    environment=dict(
-                        buildImage=codebuild.LinuxBuildImage.AMAZON_LINUX_2_3,
-                    ),
-                )
-            ),
-            environment_variables={
-                "SAGEMAKER_PROJECT_NAME": codebuild.BuildEnvironmentVariable(
-                    value=project_name.value_as_string
-                ),
-                "STAGE_NAME": codebuild.BuildEnvironmentVariable(
-                    value=stage_name.value_as_string
-                ),
-                "REGISTER_LAMBDA": codebuild.BuildEnvironmentVariable(
-                    value=register_lambda.value_as_string
-                ),
-            },
-        )
-
         source_output = codepipeline.Artifact()
         cdk_build_output = codepipeline.Artifact()
-        register_build_output = codepipeline.Artifact()
 
         # Create the s3 artifact (name must be < 63 chars)
         s3_artifact = s3.Bucket(
@@ -268,20 +222,6 @@ class PipelineStack(core.Stack):
                             role=service_catalog_role,
                             deployment_role=service_catalog_role,
                             replace_on_failure=True,
-                        ),
-                    ],
-                ),
-                codepipeline.StageProps(
-                    stage_name="Register",
-                    actions=[
-                        codepipeline_actions.CodeBuildAction(
-                            action_name="Register_Build",
-                            project=register_build,
-                            input=source_output,
-                            outputs=[
-                                register_build_output,
-                            ],
-                            role=service_catalog_role,
                         ),
                     ],
                 ),

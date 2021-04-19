@@ -42,6 +42,13 @@ tags = [
 with open(f"{stage_name}-config.json", "r") as f:
     j = json.load(f)
     deployment_config = DeploymentConfig(**j)
+    # Append tags for ab-testing
+    tags += [
+        core.CfnTag(key="ab-testing:enabled", value="true"),
+        core.CfnTag(key="ab-testing:strategy", value=deployment_config.strategy),
+        core.CfnTag(key="ab-testing:epsilon", value=str(deployment_config.epsilon)),
+        core.CfnTag(key="ab-testing:warmup", value=str(deployment_config.warmup)),
+    ]
 
 sagemaker = SageMakerStack(
     app,

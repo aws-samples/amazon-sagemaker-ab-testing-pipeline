@@ -146,7 +146,7 @@ Follow are a list of context values that are provided in the `cdk.json`, which c
 |---------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|
 | `api_name`                | The API Gateway Name                                                                                                                                            | "ab-testing"                       |
 | `stage_name`              | The stage namespace for resource and API Gateway path                                                                                                           | "dev"                              |
-| `endpoint_filter`         | A prefix to filter which Amazon SageMaker endpoints the API can invoke                                                                                          | "*"                                |
+| `endpoint_prefix`         | A prefix to filter which Amazon SageMaker endpoints the API can invoked.                                                                                        | ""                                 |
 | `api_lambda_memory`       | The [lambda memory](https://docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html) allocation for API endpoint.                                        | 768                                |
 | `api_lambda_timeout`      | The lambda timeout for the API endpoint.                                                                                                                        | 10                                 |
 | `metrics_lambda_memory`   | The [lambda memory](https://docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html) allocated for metrics processing Lambda                             | 768                                |
@@ -164,9 +164,7 @@ Run the following command to deploy the API and testing infrastructure, optional
 cdk deploy ab-testing-api
 ```
 
-This stack will ask you to confirm any changes, and output the `RegisterLambda` which you will provide to the MLOps Project, and the `ApiEndpoint` which you will provide to the A/B Testing sample notebook.
-
-Amazon SageMaker Studio projects will be granted access to invoke the Register Lambda, so if you are seeing errors running the above command ensure you have [Enable SageMaker project templates for Studio users](https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-projects-studio-updates.html).
+This stack will ask you to confirm any changes, and output the `ApiEndpoint` which you will provide to the A/B Testing sample notebook.
 
 ## Create the SageMaker MLOps Project Template
 
@@ -276,7 +274,6 @@ On the Create project page, SageMaker templates is chosen by default. This optio
   - The project name must have 32 characters or fewer.
 10. In the Project template parameters, provide the *Repository Name** you created previously eg:
   - For **StageName**, enter `dev` 
-  - For **RegisterLambda**, enter the `RegisterLambda` output from the `ab-testing-api` stack
   - For **CodeCommitSeedBucket**, enter the `CodeCommitSeedBucket` output from the `ab-testiing-service-catalog` stack
   - For **CodeCommitSeedKey**, enter the `CodeCommitSeedKey` output from the `ab-testiing-service-catalog` stack
 11. Choose Create project.

@@ -75,8 +75,8 @@ def test_create_variant_metrics():
         },
     ]
 
-    # See the dynamodb get_item
-    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html#DynamoDB.Client.get_item
+    # See the dynamodb put_item
+    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html#DynamoDB.Client.put_item
     with Stubber(exp_metrics.dynamodb.meta.client) as stubber:
         expected_response = {
             "ConsumedCapacity": {
@@ -350,3 +350,35 @@ def test_update_variant_metrics():
         "conversion_count": 1,
         "reward_sum": 1,
     }
+
+
+def test_delete_endpoint():
+    # Create new metrics object and
+    exp_metrics = ExperimentMetrics("test-metrics", "test-delivery-stream")
+
+    with Stubber(exp_metrics.dynamodb.meta.client) as ddb_stubber:
+        # 1 invocation for ev1v1
+        expected_response = {
+            "Attributes": {
+                "endpoint_name": {
+                    "S": "e1",
+                },
+                "deleted_at": {
+                    "N": "0",
+                },
+            },
+        }
+        expected_params = {
+            "ExpressionAttributeValues": {
+                ":now": 0,
+            },
+            "Key": {"endpoint_name": "e1"},
+            "ReturnValues": "UPDATED_NEW",
+            "TableName": "test-metrics",
+            "UpdateExpression": "SET deleted_at = :now ",
+        }
+        ddb_stubber.add_response("update_item", expected_response, expected_params)
+
+        response = exp_metrics.delete_endpoint("e1", timestamp=0)
+        assert response is not None
+        assert response["Attributes"]["deleted_at"] == 0

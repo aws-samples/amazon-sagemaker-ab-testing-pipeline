@@ -42,6 +42,7 @@ class DeploymentConfig(InstanceConfig):
         instance_type: str = "ml.t2.medium",
         strategy: str = "ThompsonSampling",
         warmup: int = 0,
+        epsilon: float = 0.1,
     ):
         self.stage_name = stage_name
         # Provide either the challenger variant count, or specific champion/challenger config
@@ -74,4 +75,5 @@ class DeploymentConfig(InstanceConfig):
             self.challenger_variant_config = None
         self.strategy = strategy
         self.warmup = warmup
+        self.epsilon = epsilon
         super().__init__(instance_count, instance_type)

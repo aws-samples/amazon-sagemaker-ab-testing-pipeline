@@ -14,6 +14,7 @@ METRICS_TABLE = os.environ["METRICS_TABLE"]
 DELIVERY_STREAM_NAME = os.environ["DELIVERY_STREAM_NAME"]
 DELIVERY_SYNC = os.getenv("DELIVERY_SYNC", "False").lower() == "true"
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+ENDPOINT_PREFIX = os.getenv("ENDPOINT_PREFIX", "")
 
 # Configure logging and patch xray
 logger = logging.getLogger()
@@ -50,6 +51,17 @@ def get_endpoint_variants(endpoint_name):
     return endpoint_variants
 
 
+@xray_recorder.capture("Delete")
+def handle_delete(endpoint_name: str):
+    response = exp_metrics.delete_endpoint(
+        endpoint_name=endpoint_name,
+    )
+    result = {
+        "endpoint_name": endpoint_name,
+    }
+    return result, 200
+
+
 @xray_recorder.capture("Register")
 def handle_register(endpoint_name: str, strategy: str, epsilon: float, warmup: int):
     endpoint_variants = get_endpoint_variants(endpoint_name)
@@ -76,14 +88,38 @@ def lambda_handler(event, context):
     try:
         logger.debug(json.dumps(event))
 
-        endpoint_name = event.get("endpoint_name")
-        if endpoint_name is None:
-            raise Exception("Require endpoint name in event")
+        if not (
+            event.get("source") == "aws.sagemaker"
+            and event.get("detail-type") == "SageMaker Endpoint State Change"
+        ):
+            raise Exception(
+                "Expect CloudWatch Event for SageMaker Endpoint Stage Change"
+            )
 
-        strategy = event.get("strategy", ThompsonSampling.STRATEGY_NAME)
-        epsilon = float(event.get("epsilon", 0.1))
-        warmup = int(event.get("warmup", 0))
-        result, status_code = handle_register(endpoint_name, strategy, epsilon, warmup)
+        # If this endpoint does not match prefix or not enabled return a status code of Not Modified (304)
+        endpoint_name = event["detail"]["EndpointName"]
+        endpoint_tags = event["detail"]["Tags"]
+        endpoint_enabled = endpoint_tags.get("ab-testing:enabled") == "true"
+        if not (endpoint_name.startswith(ENDPOINT_PREFIX) and endpoint_enabled):
+            logger.info(
+                f"Endpoint: {endpoint_name} not enabled for prefix: {ENDPOINT_PREFIX}"
+            )
+            return {"statusCode": 304, "body": json.dumps(event)}
+
+        # Delete or register the endpoint depending on status change
+        endpoint_status = event["detail"]["EndpointStatus"]
+        if endpoint_status == "DELETING":
+            result, status_code = handle_delete(endpoint_name)
+        elif endpoint_status == "IN_SERVICE":
+            strategy = endpoint_tags["ab-testing:strategy"]
+            epsilon = float(endpoint_tags["ab-testing:epsilon"])
+            warmup = int(endpoint_tags["ab-testing:warmup"])
+            result, status_code = handle_register(
+                endpoint_name, strategy, epsilon, warmup
+            )
+        else:
+            result = {"message": f"Endpoint Status: {endpoint_status} not supported"}
+            status_code = 400
 
         # Log result succesful result and return
         logger.debug(json.dumps(result))

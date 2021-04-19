@@ -2,6 +2,8 @@ from aws_cdk import (
     core,
     aws_apigateway,
     aws_iam,
+    aws_events as events,
+    aws_events_targets as targets,
     aws_logs,
     aws_lambda,
     aws_dynamodb,
@@ -24,7 +26,7 @@ class ApiStack(core.Stack):
         log_level = self.node.try_get_context("log_level")
         api_name = self.node.try_get_context("api_name")
         stage_name = self.node.try_get_context("stage_name")
-        endpoint_filter = self.node.try_get_context("endpoint_filter")
+        endpoint_prefix = self.node.try_get_context("endpoint_prefix")
         api_lambda_memory = self.node.try_get_context("api_lambda_memory")
         api_lambda_timeout = self.node.try_get_context("api_lambda_timeout")
         metrics_lambda_memory = self.node.try_get_context("metrics_lambda_memory")
@@ -114,9 +116,9 @@ class ApiStack(core.Stack):
                     "sagemaker:InvokeEndpoint",
                 ],
                 resources=[
-                    "arn:aws:sagemaker:{}:{}:endpoint/{}".format(
-                        self.region, self.account, endpoint_filter
-                    ),
+                    "arn:aws:sagemaker:{}:{}:endpoint/{}*".format(
+                        self.region, self.account, endpoint_prefix
+                    )
                 ],
             )
         )
@@ -145,6 +147,7 @@ class ApiStack(core.Stack):
                 "DELIVERY_STREAM_NAME": delivery_stream_name,
                 "DELIVERY_SYNC": "true" if delivery_sync else "false",
                 "LOG_LEVEL": log_level,
+                "ENDPOINT_PREFIX": endpoint_prefix,
             },
             layers=[xray_layer],
             tracing=aws_lambda.Tracing.ACTIVE,
@@ -160,20 +163,32 @@ class ApiStack(core.Stack):
                     "sagemaker:DescribeEndpoint",
                 ],
                 resources=[
-                    "arn:aws:sagemaker:{}:{}:endpoint/{}".format(
-                        self.region, self.account, endpoint_filter
-                    ),
+                    "arn:aws:sagemaker:{}:{}:endpoint/{}*".format(
+                        self.region, self.account, endpoint_prefix
+                    )
                 ],
             )
         )
 
-        # Grant permissions to the service catalog use role
-        service_catalog_role = aws_iam.Role.from_role_arn(
+        # Add endpoint event rule to register endpoints that are created or updated.
+        # Note CDK is unable to filter on resource prefixes, so we will need to filter on this within the RegisterLambda function.
+        # see: https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-patterns-content-based-filtering.html#filtering-prefix-matching
+        endpoint_rule = events.Rule(
             self,
-            "RegisterRole",
-            f"arn:{self.partition}:iam::{self.account}:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
+            "EndpointRule",
+            rule_name=f"sagemaker-{api_name}-endpoint",
+            description="Rule to register a SageMaker Endpoint when it is created or updated.",
+            event_pattern=events.EventPattern(
+                source=["aws.sagemaker"],
+                detail_type=[
+                    "SageMaker Endpoint State Change",
+                ],
+                detail={
+                    "EndpointStatus": ["IN_SERVICE", "DELETING"],
+                },
+            ),
+            targets=[targets.LambdaFunction(lambda_register)],
         )
-        lambda_register.grant_invoke(service_catalog_role)
 
         # Return the register lambda function as output
         core.CfnOutput(self, "RegisterLambda", value=lambda_register.function_name)

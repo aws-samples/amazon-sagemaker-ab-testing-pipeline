@@ -59,7 +59,7 @@ class ModelRegistry:
             # Return error if no packages found
             if len(model_packages) == 0 and creation_time_after is None:
                 error_message = (
-                    f"No latest packages found for: {model_package_group_name}"
+                    f"No approved packages found for: {model_package_group_name}"
                 )
                 logger.error(error_message)
                 raise Exception(error_message)
@@ -121,9 +121,7 @@ class ModelRegistry:
 
             # Return error if no packages found
             if len(model_packages) == 0:
-                error_message = (
-                    f"No versioned packages found for: {model_package_group_name}"
-                )
+                error_message = f"No approved packages found for: {model_package_group_name} and versions: {model_package_versions}"
                 logger.error(error_message)
                 raise Exception(error_message)
 
