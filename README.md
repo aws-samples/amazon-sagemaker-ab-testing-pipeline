@@ -133,16 +133,25 @@ Then, click the **Add inline policy** link, switch to to the **JSON** tab, and p
         {
             "Effect": "Allow",
             "Action": [
-                "iam:AttachRolePolicy",
                 "iam:CreateRole",
-                "iam:GetRole",
-                "iam:PutRolePolicy",
                 "iam:PassRole",
-                "iam:DetachRolePolicy",
-                "iam:DeleteRolePolicy",
                 "iam:DeleteRole"
             ],
             "Resource": "arn:aws:iam::*:role/ab-testing-api-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "iam:GetRole",
+                "iam:AttachRolePolicy",
+                "iam:PutRolePolicy",
+                "iam:DetachRolePolicy",
+                "iam:DeleteRolePolicy"
+            ],
+            "Resource": [
+              "arn:aws:iam::*:role/ab-testing-api-*",
+              "arn:aws:iam::*:role/service-role/AmazonSageMakerServiceCatalogProductsLaunchRole"
+            ]
         },
         {
             "Effect": "Allow",
@@ -181,7 +190,7 @@ Follow are a list of context values that are provided in the `cdk.json`, which c
 |---------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|
 | `api_name`                | The API Gateway Name                                                                                                                                            | "ab-testing"                       |
 | `stage_name`              | The stage namespace for resource and API Gateway path                                                                                                           | "dev"                              |
-| `endpoint_prefix`         | A prefix to filter Amazon SageMaker endpoints the API can invoke.                                                                                               | ""                                 |
+| `endpoint_prefix`         | A prefix to filter Amazon SageMaker endpoints the API can invoke.                                                                                               | "sagemaker-"                       |
 | `api_lambda_memory`       | The [lambda memory](https://docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html) allocation for API endpoint.                                        | 768                                |
 | `api_lambda_timeout`      | The lambda timeout for the API endpoint.                                                                                                                        | 10                                 |
 | `metrics_lambda_memory`   | The [lambda memory](https://docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html) allocated for metrics processing Lambda                             | 768                                |
@@ -196,7 +205,7 @@ Follow are a list of context values that are provided in the `cdk.json`, which c
 Run the following command to deploy the API and testing infrastructure, optionally override context values.
 
 ```
-cdk deploy ab-testing-api -c endpoint_prefix=ab-testing-pipeline
+cdk deploy ab-testing-api -c endpoint_prefix=sagemaker-ab-testing-pipeline
 ```
 
 This stack will ask you to confirm any changes, and output the `ApiEndpoint` which you will provide to the A/B Testing sample notebook.

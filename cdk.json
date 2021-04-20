@@ -11,7 +11,7 @@
     "log_level": "INFO",
     "api_name": "ab-testing",
     "stage_name": "dev",
-    "endpoint_prefix": "",
+    "endpoint_prefix": "sagemaker-",
     "api_lambda_memory": 768,
     "api_lambda_timeout": 60,
     "metrics_lambda_memory": 768,
