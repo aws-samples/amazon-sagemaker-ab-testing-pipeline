@@ -363,7 +363,7 @@ This section outlines cost considerations for running the A/B Testing Pipeline. 
 - **CodeCommit** – $1/month if you didn't opt to use your own GitHub repository.
 - **CodePipeline** – CodePipeline costs $1 per active pipeline* per month. Pipelines are free for the first 30 days after creation. More can be found at [AWS CodePipeline Pricing](https://aws.amazon.com/codepipeline/pricing/).
 - **SageMaker** – Prices vary based on EC2 instance usage for the Notebook Instances, Model Hosting, Model Training and Model Monitoring; each charged per hour of use. For more information, see [Amazon SageMaker Pricing](https://aws.amazon.com/sagemaker/pricing/).
-  - Then ten `ml.c5.4xlarge` training jobs run in the notebook for approx 4 minutes at $0.81 an hour cost less than $1.
+  - The ten `ml.c5.4xlarge` *training jobs* run for approx 4 minutes at $0.81 an hour, and cost less than $1.
   - The two `ml.t2.medium` instances for production *hosting* endpoint costs 2 x $0.056 per hour, or $2.68 per day.
 - **S3** – Low cost, prices will vary depending on the size of the models/artifacts stored. The first 50 TB each month will cost only $0.023 per GB stored. For more information, see [Amazon S3 Pricing](https://aws.amazon.com/s3/pricing/).
 - **API Gateway** - Low cost, $1.29 for first 300 million requests.  For more info see [Amazon API Gateway pricing](https://aws.amazon.com/api-gateway/pricing/)
@@ -371,7 +371,7 @@ This section outlines cost considerations for running the A/B Testing Pipeline. 
 
 ## Cleaning Up
 
-Once you have clean up the SageMaker Endpoints and Project as listed in the [Sample Notebook](notebook/mab-reviews-helpfulness.ipynb), complete the clean up by deleting the **Service Catalog** and **API** resources with the AWS CDK:
+Once you have cleaned up the SageMaker Endpoints and Project as described in the [Sample Notebook](notebook/mab-reviews-helpfulness.ipynb), complete the clean up by deleting the **Service Catalog** and **API** resources with the AWS CDK:
 
 1. Delete the Service Catalog Portfolio and Project Template
 
