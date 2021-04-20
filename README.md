@@ -316,7 +316,7 @@ On the Create project page, SageMaker templates is chosen by default. This optio
 8. Choose **Select project template**.
 9. In the **Project details** section, for **Name**, enter **ab-testing-pipeline**.
   - The project name must have 32 characters or fewer.
-10. In the Project template parameters, provide the *Repository Name** you created previously eg:
+10. In the Project template parameters
   - For **StageName**, enter `dev` 
   - For **CodeCommitSeedBucket**, enter the `CodeCommitSeedBucket` output from the `ab-testiing-service-catalog` stack
   - For **CodeCommitSeedKey**, enter the `CodeCommitSeedKey` output from the `ab-testiing-service-catalog` stack
