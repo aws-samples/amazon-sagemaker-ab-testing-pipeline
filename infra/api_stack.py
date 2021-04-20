@@ -145,7 +145,7 @@ class ApiStack(core.Stack):
             environment={
                 "METRICS_TABLE": metrics_table.table_name,
                 "DELIVERY_STREAM_NAME": delivery_stream_name,
-                "DELIVERY_SYNC": "true" if delivery_sync else "false",
+                "STAGE_NAME": stage_name,
                 "LOG_LEVEL": log_level,
                 "ENDPOINT_PREFIX": endpoint_prefix,
             },

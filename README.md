@@ -110,17 +110,52 @@ cdk bootstrap
 
 To bootstrap and deploy, you will require permissions create AWS CloudFormation Stacks and the associated resources for your current execution role.
 
-If you have cloned this notebook into SageMaker Studio, you can find your user's role by browsing to the Studio dashboard.
+If you have cloned this notebook into SageMaker Studio, you will need to add additional permissions to the SageMaker Studio execution role.  You can find your user's role by browsing to the Studio dashboard.
 
 ![\[AB Testing Pipeline Execution Role\]](docs/ab-testing-pipeline-execution-role.png)
 
 Browse to the [IAM](https://console.aws.amazon.com/iam) section in the console, and find this role.  Then attach the following managed policies.
 
-* `AWSCloudFormationFullAccess`
 * `AmazonAPIGatewayAdministrator`
+* `AmazonDynamoDBFullAccess`
+* `AmazonKinesisFirehoseFullAccess`
+* `CloudWatchEventsFullAccess`
+* `AWSCloudFormationFullAccess`
 * `AWSLambda_FullAccess`
-* `AmazonKinesisFullAccess`
 * `AWSServiceCatalogAdminFullAccess`
+
+Then, click the **Add inline policy** link, switch to to the **JSON** tab, and paste the following inline policy:
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "iam:AttachRolePolicy",
+                "iam:CreateRole",
+                "iam:GetRole",
+                "iam:PutRolePolicy",
+                "iam:PassRole",
+                "iam:DetachRolePolicy",
+                "iam:DeleteRolePolicy",
+                "iam:DeleteRole"
+            ],
+            "Resource": "arn:aws:iam::*:role/ab-testing-api-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:PutRetentionPolicy"
+            ],
+            "Resource": "arn:aws:logs:**:*:log-group:ab-testing-api-*"
+        }
+    ]
+}
+```
+
+Click **Review policy** and provide the name `CDK-CreateRolePolicy` then click **Create policy**
 
 ![\[AB Testing Pipeline Execution Role\]](docs/ab-testing-pipeline-iam-role.png)
 
@@ -146,22 +181,22 @@ Follow are a list of context values that are provided in the `cdk.json`, which c
 |---------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|
 | `api_name`                | The API Gateway Name                                                                                                                                            | "ab-testing"                       |
 | `stage_name`              | The stage namespace for resource and API Gateway path                                                                                                           | "dev"                              |
-| `endpoint_prefix`         | A prefix to filter which Amazon SageMaker endpoints the API can invoked.                                                                                        | ""                                 |
+| `endpoint_prefix`         | A prefix to filter Amazon SageMaker endpoints the API can invoke.                                                                                               | ""                                 |
 | `api_lambda_memory`       | The [lambda memory](https://docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html) allocation for API endpoint.                                        | 768                                |
 | `api_lambda_timeout`      | The lambda timeout for the API endpoint.                                                                                                                        | 10                                 |
 | `metrics_lambda_memory`   | The [lambda memory](https://docs.aws.amazon.com/lambda/latest/dg/configuration-memory.html) allocated for metrics processing Lambda                             | 768                                |
 | `metrics_lambda_timeout`  | The lambda timeout for the processing lambda.                                                                                                                   | 10                                 |
 | `dynamodb_read_capacity`  | The [Read Capacity](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadWriteCapacityMode.html) for the DynamoDB tables             | 5                                  |
 | `dynamodb_write_capacity` | The [Write Capacity](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadWriteCapacityMode.html) for the DynamoDB tables            | 5                                  |
-| `delivery_sync`           | When set to `true`, metrics will be written directly to DynamoDB in real-time, instead of written to Amazon Kinesis for processing (recommend for testing only) | false                              |
-| `firehose_interval`       | The [buffering](https://docs.aws.amazon.com/firehose/latest/dev/create-configure.html) interval in seconds at which the firehose will flush events to S3.       | 60                                 |
+| `delivery_sync`           | When`true` metrics will be written directly to DynamoDB, instead of the Amazon Kinesis for processing.                                                          | false                              |
+| `firehose_interval`       | The [buffering](https://docs.aws.amazon.com/firehose/latest/dev/create-configure.html) interval in seconds which firehose will flush events to S3.              | 60                                 |
 | `firehose_mb_size`        | The buffering size in MB before the firehose will flush its events to S3.                                                                                       | 1                                  |
 | `log_level`               | Logging level for AWS Lambda functions                                                                                                                          | "INFO"                             |
 
 Run the following command to deploy the API and testing infrastructure, optionally override context values.
 
 ```
-cdk deploy ab-testing-api
+cdk deploy ab-testing-api -c endpoint_prefix=ab-testing-pipeline
 ```
 
 This stack will ask you to confirm any changes, and output the `ApiEndpoint` which you will provide to the A/B Testing sample notebook.
@@ -319,6 +354,38 @@ With the Deployment Pipeline complete, you will be able to continue with the nex
 4. Plot the cumulative reward, and reward rate.
 5. Plot the beta distributions of the course of the test.
 6. Calculate the statistical significance of the test.
+
+## Running Cost
+
+This section outlines cost considerations for running the A/B Testing Pipeline. Completing the pipeline will deploy an endpoint with 2 production variants which will cost less than $3 per day. Further cost breakdowns are below.
+
+- **CodeBuild** – Charges per minute used. First 100 minutes each month come at no charge. For information on pricing beyond the first 100 minutes, see [AWS CodeBuild Pricing](https://aws.amazon.com/codebuild/pricing/).
+- **CodeCommit** – $1/month if you didn't opt to use your own GitHub repository.
+- **CodePipeline** – CodePipeline costs $1 per active pipeline* per month. Pipelines are free for the first 30 days after creation. More can be found at [AWS CodePipeline Pricing](https://aws.amazon.com/codepipeline/pricing/).
+- **SageMaker** – Prices vary based on EC2 instance usage for the Notebook Instances, Model Hosting, Model Training and Model Monitoring; each charged per hour of use. For more information, see [Amazon SageMaker Pricing](https://aws.amazon.com/sagemaker/pricing/).
+  - The ten `ml.c5.4xlarge` *training jobs* run for approx 4 minutes at $0.81 an hour, and cost less than $1.
+  - The two `ml.t2.medium` instances for production *hosting* endpoint costs 2 x $0.056 per hour, or $2.68 per day.
+- **S3** – Low cost, prices will vary depending on the size of the models/artifacts stored. The first 50 TB each month will cost only $0.023 per GB stored. For more information, see [Amazon S3 Pricing](https://aws.amazon.com/s3/pricing/).
+- **API Gateway** - Low cost, $1.29 for first 300 million requests.  For more info see [Amazon API Gateway pricing](https://aws.amazon.com/api-gateway/pricing/)
+- **Lambda** - Low cost, $0.20 per 1 million request see [AWS Lambda Pricing](https://aws.amazon.com/lambda/pricing/).
+
+## Cleaning Up
+
+Once you have cleaned up the SageMaker Endpoints and Project as described in the [Sample Notebook](notebook/mab-reviews-helpfulness.ipynb), complete the clean up by deleting the **Service Catalog** and **API** resources with the AWS CDK:
+
+1. Delete the Service Catalog Portfolio and Project Template
+
+```
+cdk destroy ab-testing-service-catalog
+```
+
+2. Delete the API and testing infrastructure
+
+Before destroying the API stack, is is recommend you [empty](https://docs.aws.amazon.com/AmazonS3/latest/userguide/empty-bucket.html) and [delete](https://docs.aws.amazon.com/AmazonS3/latest/userguide/delete-bucket.html) the S3 Bucket that contains the S3 logs persisted by the Kinesis Firehose.
+
+```
+cdk destroy ab-testing-api
+```
 
 ## Want to know more?
 
