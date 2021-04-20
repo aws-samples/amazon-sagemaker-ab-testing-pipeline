@@ -112,7 +112,7 @@ class SageMakerStack(core.Stack):
             f"arn:aws:iam::{self.account}:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
         )
 
-        # Add the challenger variant
+        # Add the champion and challenger variants
         model_configs = [
             deployment_config.champion_variant_config
         ] + deployment_config.challenger_variant_config

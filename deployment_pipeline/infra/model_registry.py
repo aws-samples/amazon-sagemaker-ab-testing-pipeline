@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
@@ -13,7 +14,8 @@ class ModelRegistry:
     """
 
     def __init__(self):
-        self.sm_client = boto3.client("sagemaker")
+        config = Config(retries={"max_attempts": 10, "mode": "standard"})
+        self.sm_client = boto3.client("sagemaker", config=config)
 
     def create_model_package_group(
         self,
