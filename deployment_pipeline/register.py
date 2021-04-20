@@ -14,6 +14,7 @@ lambda_client = boto3.client("lambda")
 
 # Load these from environment variables, that are passed into CodeBuild job from pipeline stack
 project_name = os.environ["SAGEMAKER_PROJECT_NAME"]
+project_id = os.environ["SAGEMAKER_PROJECT_ID"]
 stage_name = os.environ["STAGE_NAME"]
 register_lambda = os.environ["REGISTER_LAMBDA"]
 
@@ -32,6 +33,9 @@ with open(f"{stage_name}-config.json", "r") as f:
                 "EndpointName": endpoint_name,
                 "EndpointStatus": "IN_SERVICE",
                 "Tags": {
+                    "sagemaker:project-name": project_name,
+                    "sagemaker:project-id": project_id,
+                    "sagemaker:deployment-stage": stage_name,
                     "ab-testing:enabled": "true",
                     "ab-testing:strategy": j.get("strategy", "ThompsonSampling"),
                     "ab-testing:epsilon": str(j.get("epsilon", 0.1)),
@@ -49,5 +53,5 @@ with open(f"{stage_name}-config.json", "r") as f:
     # Print the result, and if not succesful raise error
     result = json.loads(response["Payload"].read())
     print(result)
-    if result["statusCode"] != 200:
+    if result["statusCode"] not in [200, 201]:
         raise Exception("Unexpected status code: {}".format(result["statusCode"]))
