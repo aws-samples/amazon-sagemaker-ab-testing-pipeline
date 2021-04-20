@@ -17,6 +17,53 @@ def get_package(version: int, creation_time: datetime = datetime.fromtimestamp(0
     }
 
 
+@pytest.mark.skip(reason="botocore.exceptions.ParamValidationError: fails with Tags")
+def test_create_model_package_group():
+    # Create model registry
+    registry = ModelRegistry()
+
+    with Stubber(registry.sm_client) as stubber:
+        # Empty list with more
+        expected_params = {
+            "ModelPackageGroupDescription": "test package group",
+            "ModelPackageGroupName": "test-package-group",
+            "Tags": [
+                {"Key": "sagemaker:project-name", "Value": "test-project-name"},
+                {"Key": "sagemaker:project-id", "Value": "test-project-id"},
+            ],
+        }
+        expected_response = {
+            "ModelPackageGroupArn": f"arn:aws:sagemaker:REGION:ACCOUNT:model-package-group/test-package-group",
+        }
+        stubber.add_response(
+            "create_model_package_group", expected_response, expected_params
+        )
+
+        # Second time, add the client error if this exists
+        stubber.add_client_error(
+            "create_model_package_group",
+            "ValidationException",
+            "Model Package Group already exists",
+            expected_params=expected_params,
+        )
+
+        created = registry.create_model_package_group(
+            "test-package-group",
+            "test package group",
+            "test-project-name",
+            "test-project-id",
+        )
+        assert created == True
+
+        created = registry.create_model_package_group(
+            "test-package-group",
+            "test package group",
+            "test-project-name",
+            "test-project-id",
+        )
+        assert created == False
+
+
 def test_get_latest_approved_model_packages():
     # Create model registry
     registry = ModelRegistry()

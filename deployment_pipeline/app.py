@@ -55,6 +55,7 @@ sagemaker = SageMakerStack(
     "ab-testing-sagemaker",
     deployment_config=deployment_config,
     project_name=project_name,
+    project_id=project_id,
     endpoint_name=endpoint_name,
     tags=tags,
 )

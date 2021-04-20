@@ -15,6 +15,43 @@ class ModelRegistry:
     def __init__(self):
         self.sm_client = boto3.client("sagemaker")
 
+    def create_model_package_group(
+        self,
+        model_package_group_name: str,
+        description: str,
+        project_name: str,
+        project_id: str,
+    ):
+        """
+        Create the model package group if it doesn't exist.
+        """
+        try:
+            self.sm_client.create_model_package_group(
+                ModelPackageGroupName=model_package_group_name,
+                ModelPackageGroupDescription=description,
+                Tags=[
+                    {"Key": "sagemaker:project-name", "Value": project_name},
+                    {"Key": "sagemaker:project-id", "Value": project_id},
+                ],
+            )
+            logger.info(f"Model package group {model_package_group_name} created")
+            return True
+
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            error_message = e.response["Error"]["Message"]
+            if (
+                error_code == "ValidationException"
+                and "Model Package Group already exists" in error_message
+            ):
+                logger.info(
+                    f"Model package group {model_package_group_name} already exists"
+                )
+                return False
+            else:
+                logger.error(error_message)
+                raise Exception(error_message)
+
     def get_latest_approved_packages(
         self,
         model_package_group_name: str,

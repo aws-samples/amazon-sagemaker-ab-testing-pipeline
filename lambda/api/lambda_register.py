@@ -12,7 +12,7 @@ from algorithm import ThompsonSampling
 # Get environment variables
 METRICS_TABLE = os.environ["METRICS_TABLE"]
 DELIVERY_STREAM_NAME = os.environ["DELIVERY_STREAM_NAME"]
-DELIVERY_SYNC = os.getenv("DELIVERY_SYNC", "False").lower() == "true"
+STAGE_NAME = os.environ["STAGE_NAME"]
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 ENDPOINT_PREFIX = os.getenv("ENDPOINT_PREFIX", "")
 
@@ -22,7 +22,7 @@ logger.setLevel(LOG_LEVEL)
 patch_all()
 
 # Create the experiment classes from the lambda layer
-exp_metrics = ExperimentMetrics(METRICS_TABLE, DELIVERY_STREAM_NAME, DELIVERY_SYNC)
+exp_metrics = ExperimentMetrics(METRICS_TABLE, DELIVERY_STREAM_NAME)
 
 # Configure logging and patch xray
 logger = logging.getLogger()
@@ -96,29 +96,46 @@ def lambda_handler(event, context):
                 "Expect CloudWatch Event for SageMaker Endpoint Stage Change"
             )
 
-        # If this endpoint does not match prefix or not enabled return a status code of Not Modified (304)
+        # If this endpoint does not match prefix or not enabled return Not Modified (304)
         endpoint_name = event["detail"]["EndpointName"]
         endpoint_tags = event["detail"]["Tags"]
         endpoint_enabled = endpoint_tags.get("ab-testing:enabled") == "true"
         if not (endpoint_name.startswith(ENDPOINT_PREFIX) and endpoint_enabled):
-            logger.info(
+            error_message = (
                 f"Endpoint: {endpoint_name} not enabled for prefix: {ENDPOINT_PREFIX}"
             )
-            return {"statusCode": 304, "body": json.dumps(event)}
+            logger.warning(error_message)
+            return {"statusCode": 304, "body": error_message}
+
+        # If the API stage name doesn't match the deployment stage name return Not Modified (304)
+        deployment_stage = endpoint_tags.get("sagemaker:deployment-stage")
+        if deployment_stage != STAGE_NAME:
+            error_message = f"Endpoint: {endpoint_name} deployment stage: {deployment_stage} not equal to API stage: {STAGE_NAME}"
+            logger.warning(error_message)
+            return {"statusCode": 304, "body": error_message}
 
         # Delete or register the endpoint depending on status change
         endpoint_status = event["detail"]["EndpointStatus"]
         if endpoint_status == "DELETING":
+            logger.info(f"Deleting Endpoint: {endpoint_name}")
             result, status_code = handle_delete(endpoint_name)
         elif endpoint_status == "IN_SERVICE":
-            strategy = endpoint_tags["ab-testing:strategy"]
-            epsilon = float(endpoint_tags["ab-testing:epsilon"])
-            warmup = int(endpoint_tags["ab-testing:warmup"])
+            # Use defaults if enabled is provided without additional arguments
+            strategy = endpoint_tags.get("ab-testing:strategy", "ThompsonSampling")
+            epsilon = float(endpoint_tags.get("ab-testing:epsilon", 0.1))
+            warmup = int(endpoint_tags.get("ab-testing:warmup", 0))
+            logger.info(
+                f"Registering Endpoint: {endpoint_name} with strategy: {strategy}, epsilon: {epsilon}, warmup: {warmup}"
+            )
             result, status_code = handle_register(
                 endpoint_name, strategy, epsilon, warmup
             )
         else:
-            result = {"message": f"Endpoint Status: {endpoint_status} not supported"}
+            error_message = (
+                f"Endpoint: {endpoint_name} Status: {endpoint_status} not supported."
+            )
+            logger.warning(error_message)
+            result = {"message": error_message}
             status_code = 400
 
         # Log result succesful result and return
@@ -128,6 +145,7 @@ def lambda_handler(event, context):
         logger.error(e)
         # Get boto3 specific error message
         error_message = e.response["Error"]["Message"]
+        logger.error(error_message)
         raise Exception(error_message)
     except Exception as e:
         logger.error(e)

@@ -19,6 +19,7 @@ class SageMakerStack(core.Stack):
         construct_id: str,
         deployment_config: DeploymentConfig,
         project_name: str,
+        project_id: str,
         endpoint_name: str,
         tags: list,
         **kwargs,
@@ -28,10 +29,22 @@ class SageMakerStack(core.Stack):
         # Define the package group names for champion and challenger
         champion_package_group = f"{project_name}-champion"
         challenger_package_group = f"{project_name}-challenger"
-
-        # Get the approved packages for the project
-        registry = ModelRegistry()
         challenger_creation_time: datetime = None
+
+        # Create the model package groups if they don't exist
+        registry = ModelRegistry()
+        registry.create_model_package_group(
+            champion_package_group,
+            "Champion Models for A/B Testing",
+            project_name,
+            project_id,
+        )
+        registry.create_model_package_group(
+            challenger_package_group,
+            "Challenger Models for A/B Testing",
+            project_name,
+            project_id,
+        )
 
         # If we don't have a specific champion variant defined, get the latest approved
         if deployment_config.champion_variant_config is None:
