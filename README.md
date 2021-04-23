@@ -114,15 +114,7 @@ If you have cloned this notebook into SageMaker Studio, you will need to add add
 
 ![\[AB Testing Pipeline Execution Role\]](docs/ab-testing-pipeline-execution-role.png)
 
-Browse to the [IAM](https://console.aws.amazon.com/iam) section in the console, and find this role.  Then attach the following managed policies.
-
-* `AmazonAPIGatewayAdministrator`
-* `AmazonDynamoDBFullAccess`
-* `AmazonKinesisFirehoseFullAccess`
-* `CloudWatchEventsFullAccess`
-* `AWSCloudFormationFullAccess`
-* `AWSLambda_FullAccess`
-* `AWSServiceCatalogAdminFullAccess`
+Browse to the [IAM](https://console.aws.amazon.com/iam) section in the console, and find this role.
 
 Then, click the **Add inline policy** link, switch to to the **JSON** tab, and paste the following inline policy:
 
@@ -133,8 +125,64 @@ Then, click the **Add inline policy** link, switch to to the **JSON** tab, and p
         {
             "Effect": "Allow",
             "Action": [
+                "apigateway:*"
+            ],
+            "Resource": "arn:aws:apigateway:*::/*"
+        },
+        {
+            "Action": [
+                "dynamodb:*"
+            ],
+            "Effect": "Allow",
+            "Resource": "arn:aws:dynamodb:*:*:table/ab-testing-*"
+        },
+        {
+            "Action": [
+                "lambda:*"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+              "arn:aws:lambda:*:*:function:ab-testing-api-*",
+              "arn:aws:lambda:*:*:layer:*"
+            ]
+        },
+        {
+            "Action": [
+                "firehose:*"
+            ],
+            "Effect": "Allow",
+            "Resource": "arn:aws:firehose:*:*:deliverystream/ab-testing-*"
+        },
+        {
+            "Action": [
+                "s3:*"
+            ],
+            "Effect": "Allow",
+            "Resource": [
+                "arn:aws:s3:::cdktoolkit-*",
+                "arn:aws:s3:::ab-testing-api-*"
+            ]
+        },
+        {
+            "Action": [
+                "cloudformation:*",
+                "servicecatalog:*",
+                "events:*"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:*"
+            ],
+            "Resource": "arn:aws:logs:**:*:log-group:ab-testing-api-*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
                 "iam:CreateRole",
-                "iam:PassRole",
                 "iam:DeleteRole"
             ],
             "Resource": "arn:aws:iam::*:role/ab-testing-api-*"
@@ -143,6 +191,8 @@ Then, click the **Add inline policy** link, switch to to the **JSON** tab, and p
             "Effect": "Allow",
             "Action": [
                 "iam:GetRole",
+                "iam:PassRole",
+                "iam:getRolePolicy",
                 "iam:AttachRolePolicy",
                 "iam:PutRolePolicy",
                 "iam:DetachRolePolicy",
@@ -150,23 +200,14 @@ Then, click the **Add inline policy** link, switch to to the **JSON** tab, and p
             ],
             "Resource": [
               "arn:aws:iam::*:role/ab-testing-api-*",
-              "arn:aws:iam::*:role/service-role/AmazonSageMakerServiceCatalogProductsLaunchRole"
+              "arn:aws:iam::*:role/service-role/AmazonSageMaker*"
             ]
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "logs:PutRetentionPolicy"
-            ],
-            "Resource": "arn:aws:logs:**:*:log-group:ab-testing-api-*"
         }
     ]
 }
 ```
 
-Click **Review policy** and provide the name `CDK-CreateRolePolicy` then click **Create policy**
-
-![\[AB Testing Pipeline Execution Role\]](docs/ab-testing-pipeline-iam-role.png)
+Click **Review policy** and provide the name `CDK-DeployPolicy` then click **Create policy**
 
 You should now be able to list the stacks by running:
 
