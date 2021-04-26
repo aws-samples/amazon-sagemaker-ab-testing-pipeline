@@ -291,7 +291,9 @@ cdk deploy ab-testing-service-catalog \
     --parameters ProductVersion=1.0
 ```
 
-This stack will output the `CodeCommitSeedBucket` and `CodeCommitSeedKey` which you will need later for the pipeline.
+This stack will output the `CodeCommitSeedBucket` and `CodeCommitSeedKey` which you will need when creating the Amazon SageMaker Studio project.
+
+If you are seeing errors running the above command ensure you have [Enabled SageMaker project templates for Studio users](https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-projects-studio-updates.html) to grant access to these resources in Amazon S3.
 
 ### Create MLOps Project Template manually (Alternative)
 
