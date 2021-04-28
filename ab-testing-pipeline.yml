@@ -228,7 +228,7 @@ Resources:
   DeployRule0F8E909D:
     Type: AWS::Events::Rule
     Properties:
-      Description: Rule to trigger a deployment when SageMaker Model registry is updated with a new model package. For example, a new model package is registered with Registry
+      Description: Rule to trigger a deployment when SageMaker Model registry is updated with a new model package.
       EventPattern:
         detail:
           ModelPackageGroupName:
@@ -276,7 +276,7 @@ Resources:
   CodeRule663E3DC0:
     Type: AWS::Events::Rule
     Properties:
-      Description: Rule to trigger a deployment when SageMaker Model registry is updated with a new model package. For example, a new model package is registered with Registry
+      Description: Rule to trigger a deployment when deployment configured is updated in CodeCommit.
       EventPattern:
         detail:
           event:

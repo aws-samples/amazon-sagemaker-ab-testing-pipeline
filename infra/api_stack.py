@@ -176,8 +176,8 @@ class ApiStack(core.Stack):
         endpoint_rule = events.Rule(
             self,
             "EndpointRule",
-            rule_name=f"sagemaker-{api_name}-endpoint",
-            description="Rule to register a SageMaker Endpoint when it is created or updated.",
+            rule_name=f"sagemaker-{api_name}-endpoint-{stage_name}",
+            description="Rule to register an Amazon SageMaker Endpoint when it is created, updated or deleted.",
             event_pattern=events.EventPattern(
                 source=["aws.sagemaker"],
                 detail_type=[

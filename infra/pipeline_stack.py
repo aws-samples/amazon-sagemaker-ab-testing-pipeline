@@ -235,7 +235,7 @@ class PipelineStack(core.Stack):
             rule_name="sagemaker-{}-model-{}".format(
                 project_name.value_as_string, stage_name.value_as_string
             ),
-            description="Rule to trigger a deployment when SageMaker Model registry is updated with a new model package. For example, a new model package is registered with Registry",
+            description="Rule to trigger a deployment when SageMaker Model registry is updated with a new model package.",
             event_pattern=events.EventPattern(
                 source=["aws.sagemaker"],
                 detail_type=["SageMaker Model Package State Change"],
@@ -260,7 +260,7 @@ class PipelineStack(core.Stack):
             rule_name="sagemaker-{}-code-{}".format(
                 project_name.value_as_string, stage_name.value_as_string
             ),
-            description="Rule to trigger a deployment when SageMaker Model registry is updated with a new model package. For example, a new model package is registered with Registry",
+            description="Rule to trigger a deployment when deployment configured is updated in CodeCommit.",
             event_pattern=events.EventPattern(
                 source=["aws.codecommit"],
                 detail_type=["CodeCommit Repository State Change"],
