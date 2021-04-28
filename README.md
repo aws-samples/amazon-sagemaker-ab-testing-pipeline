@@ -192,7 +192,7 @@ Then, click the **Add inline policy** link, switch to to the **JSON** tab, and p
             "Action": [
                 "iam:GetRole",
                 "iam:PassRole",
-                "iam:getRolePolicy",
+                "iam:GetRolePolicy",
                 "iam:AttachRolePolicy",
                 "iam:PutRolePolicy",
                 "iam:DetachRolePolicy",

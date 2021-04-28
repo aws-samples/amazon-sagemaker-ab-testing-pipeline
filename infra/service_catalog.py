@@ -92,7 +92,16 @@ class ServiceCatalogStack(core.Stack):
             role_arn=f"arn:{self.partition}:iam::{self.account}:role/service-role/AmazonSageMakerServiceCatalogProductsLaunchRole",
         )
 
-        aws_servicecatalog.CfnLaunchRoleConstraint(
+        portfolio_association = aws_servicecatalog.CfnPortfolioPrincipalAssociation(
+            self,
+            "PortfolioPrincipalAssociation",
+            portfolio_id=portfolio.ref,
+            principal_arn=execution_role_arn.value_as_string,
+            principal_type="IAM",
+        )
+
+        # Ensure we run the LaunchRoleConstrait last as there are timing issues on product/portfolio being created
+        role_constraint = aws_servicecatalog.CfnLaunchRoleConstraint(
             self,
             "LaunchRoleConstraint",
             portfolio_id=portfolio.ref,
@@ -100,14 +109,7 @@ class ServiceCatalogStack(core.Stack):
             role_arn=launch_role.role_arn,
             description=f"Launch as {launch_role.role_arn}",
         )
-
-        aws_servicecatalog.CfnPortfolioPrincipalAssociation(
-            self,
-            "PortfolioPrincipalAssociation",
-            portfolio_id=portfolio.ref,
-            principal_arn=execution_role_arn.value_as_string,
-            principal_type="IAM",
-        )
+        role_constraint.add_depends_on(portfolio_association)
 
         # Create the deployment asset as an output to pass to pipeline stack
         deployment_asset = aws_s3_assets.Asset(

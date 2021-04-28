@@ -99,7 +99,7 @@ def lambda_handler(event, context):
         # If this endpoint does not match prefix or not enabled return Not Modified (304)
         endpoint_name = event["detail"]["EndpointName"]
         endpoint_tags = event["detail"]["Tags"]
-        endpoint_enabled = endpoint_tags.get("ab-testing:enabled", "false").lower() == "true"
+        endpoint_enabled = endpoint_tags.get("ab-testing:enabled", "").lower() == "true"
         if not (endpoint_name.startswith(ENDPOINT_PREFIX) and endpoint_enabled):
             error_message = (
                 f"Endpoint: {endpoint_name} not enabled for prefix: {ENDPOINT_PREFIX}"
