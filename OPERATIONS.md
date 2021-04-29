@@ -60,7 +60,7 @@ To deploy the latest approved approved `champion` model, and the latest `N` appr
     "stage_name": "dev",
     "strategy": "ThompsonSampling",
     "instance_count": 1,
-    "instance_type": "ml.t2.medium",
+    "instance_type": "ml.t2.large",
     "challenger_variant_count": 1
 }
 ```
