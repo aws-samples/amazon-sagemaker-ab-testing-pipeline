@@ -99,6 +99,7 @@ class ServiceCatalogStack(core.Stack):
             principal_arn=execution_role_arn.value_as_string,
             principal_type="IAM",
         )
+        portfolio_association.add_depends_on(product)
 
         # Ensure we run the LaunchRoleConstrait last as there are timing issues on product/portfolio being created
         role_constraint = aws_servicecatalog.CfnLaunchRoleConstraint(
