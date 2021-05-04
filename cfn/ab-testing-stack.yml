@@ -1,0 +1,17 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  ExecutionRoleArn:
+    Type: String
+    Description: The SageMaker Studio execution role
+Resources:
+  Api:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://amazon-sagemaker-safe-deployment-pipeline.s3.amazonaws.com/ab-testing-pipeline/ab-testing-api.yml
+  ServiceCatalog:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://amazon-sagemaker-safe-deployment-pipeline.s3.amazonaws.com/ab-testing-pipeline/ab-testing-service-catalog.yml
+      Parameters:
+        ExecutionRoleArn: !Ref ExecutionRoleArn 

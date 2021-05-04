@@ -20,6 +20,11 @@
     "dynamodb_write_capacity": 5,
     "delivery_sync": false,
     "firehose_interval": 60,
-    "firehose_mb_size": 1
+    "firehose_mb_size": 1,
+    "asset_bucket_name": "amazon-sagemaker-safe-deployment-pipeline",
+    "asset_api_key": "ab-testing-pipeline/assets/ab-testing-api.zip",
+    "asset_xray_key": "ab-testing-pipeline/assets/ag-testing-xray.zip",
+    "asset_seed_key": "ab-testing-pipeline/assets/ag-testing-deployment-pipeline.zip",
+    "asset_pipeline_key": "ab-testing-pipeline/ab-testing-pipeline.yml"
   }
 }

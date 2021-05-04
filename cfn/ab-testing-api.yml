@@ -1,0 +1,892 @@
+Resources:
+  AssignmentTable861FCA3B:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: endpoint_name
+          KeyType: RANGE
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: endpoint_name
+          AttributeType: S
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      TableName: ab-testing-assignment-dev
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  MetricsTable2972A477:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      KeySchema:
+        - AttributeName: endpoint_name
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: endpoint_name
+          AttributeType: S
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      TableName: !Sub ab-testing-metrics-dev
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  XRayLayer96133D82:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      Content:
+        S3Bucket: amazon-sagemaker-safe-deployment-pipeline
+        S3Key: ab-testing-pipeline/assets/ag-testing-xray.zip
+      CompatibleRuntimes:
+        - python3.7
+      Description: A layer containing AWS X-Ray SDK for Python
+  ApiFunctionServiceRole52B9747B:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  ApiFunctionServiceRoleDefaultPolicy20A32B8D:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - xray:PutTraceSegments
+              - xray:PutTelemetryRecords
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:Query
+              - dynamodb:GetItem
+              - dynamodb:Scan
+              - dynamodb:ConditionCheckItem
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - AssignmentTable861FCA3B
+                  - Arn
+              - Ref: AWS::NoValue
+          - Action:
+              - dynamodb:BatchWriteItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - AssignmentTable861FCA3B
+                  - Arn
+              - Ref: AWS::NoValue
+          - Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:Query
+              - dynamodb:GetItem
+              - dynamodb:Scan
+              - dynamodb:ConditionCheckItem
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - MetricsTable2972A477
+                  - Arn
+              - Ref: AWS::NoValue
+          - Action: sagemaker:InvokeEndpoint
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:aws:sagemaker:"
+                  - Ref: AWS::Region
+                  - ":"
+                  - Ref: AWS::AccountId
+                  - :endpoint/sagemaker-*
+          - Action: firehose:PutRecord
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:aws:firehose:"
+                  - Ref: AWS::Region
+                  - ":"
+                  - Ref: AWS::AccountId
+                  - :deliverystream/ab-testing-events-dev
+        Version: "2012-10-17"
+      PolicyName: ApiFunctionServiceRoleDefaultPolicy20A32B8D
+      Roles:
+        - Ref: ApiFunctionServiceRole52B9747B
+  ApiFunctionCE271BD4:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: amazon-sagemaker-safe-deployment-pipeline
+        S3Key: ab-testing-pipeline/assets/ab-testing-api.zip
+      Role:
+        Fn::GetAtt:
+          - ApiFunctionServiceRole52B9747B
+          - Arn
+      Environment:
+        Variables:
+          ASSIGNMENT_TABLE:
+            Ref: AssignmentTable861FCA3B
+          METRICS_TABLE:
+            Ref: MetricsTable2972A477
+          DELIVERY_STREAM_NAME: ab-testing-events-dev
+          DELIVERY_SYNC: "false"
+          LOG_LEVEL: INFO
+      Handler: lambda_invoke.lambda_handler
+      Layers:
+        - Ref: XRayLayer96133D82
+      MemorySize: 768
+      Runtime: python3.7
+      Timeout: 60
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - ApiFunctionServiceRoleDefaultPolicy20A32B8D
+      - ApiFunctionServiceRole52B9747B
+  ApiF70053CD:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: ab-testing
+  ApiCloudWatchRole73EC6FC4:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+  ApiAccountA18C9B29:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn:
+        Fn::GetAtt:
+          - ApiCloudWatchRole73EC6FC4
+          - Arn
+    DependsOn:
+      - ApiF70053CD
+  ApiDeploymentB17BE62D4025e6e35e8a7b4da669c76aa1289331:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId:
+        Ref: ApiF70053CD
+      Description: Automatically created by the RestApi construct
+    DependsOn:
+      - ApiproxyANY4946669B
+      - Apiproxy05443892
+      - ApiANY40671C4F
+  ApiDeploymentStagedev51EE5D56:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId:
+        Ref: ApiF70053CD
+      DeploymentId:
+        Ref: ApiDeploymentB17BE62D4025e6e35e8a7b4da669c76aa1289331
+      StageName: dev
+  Apiproxy05443892:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Fn::GetAtt:
+          - ApiF70053CD
+          - RootResourceId
+      PathPart: "{proxy+}"
+      RestApiId:
+        Ref: ApiF70053CD
+  ApiproxyANYApiPermissionabtestingapiApiC34A394EANYproxy2DB18678:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ApiFunctionCE271BD4
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":execute-api:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: ApiF70053CD
+            - /
+            - Ref: ApiDeploymentStagedev51EE5D56
+            - /*/*
+  ApiproxyANYApiPermissionTestabtestingapiApiC34A394EANYproxyC94CD099:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ApiFunctionCE271BD4
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":execute-api:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: ApiF70053CD
+            - /test-invoke-stage/*/*
+  ApiproxyANY4946669B:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      HttpMethod: ANY
+      ResourceId:
+        Ref: Apiproxy05443892
+      RestApiId:
+        Ref: ApiF70053CD
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - ":apigateway:"
+              - Ref: AWS::Region
+              - :lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - ApiFunctionCE271BD4
+                  - Arn
+              - /invocations
+  ApiANYApiPermissionabtestingapiApiC34A394EANYDE0E9C96:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ApiFunctionCE271BD4
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":execute-api:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: ApiF70053CD
+            - /
+            - Ref: ApiDeploymentStagedev51EE5D56
+            - /*/
+  ApiANYApiPermissionTestabtestingapiApiC34A394EANY3D84DA43:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ApiFunctionCE271BD4
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":execute-api:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: ApiF70053CD
+            - /test-invoke-stage/*/
+  ApiANY40671C4F:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      HttpMethod: ANY
+      ResourceId:
+        Fn::GetAtt:
+          - ApiF70053CD
+          - RootResourceId
+      RestApiId:
+        Ref: ApiF70053CD
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - ":apigateway:"
+              - Ref: AWS::Region
+              - :lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - ApiFunctionCE271BD4
+                  - Arn
+              - /invocations
+  RegisterFunctionServiceRoleDB8F6C89:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  RegisterFunctionServiceRoleDefaultPolicyC4352E3C:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - xray:PutTraceSegments
+              - xray:PutTelemetryRecords
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - dynamodb:BatchWriteItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - MetricsTable2972A477
+                  - Arn
+              - Ref: AWS::NoValue
+          - Action: sagemaker:DescribeEndpoint
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:aws:sagemaker:"
+                  - Ref: AWS::Region
+                  - ":"
+                  - Ref: AWS::AccountId
+                  - :endpoint/sagemaker-*
+        Version: "2012-10-17"
+      PolicyName: RegisterFunctionServiceRoleDefaultPolicyC4352E3C
+      Roles:
+        - Ref: RegisterFunctionServiceRoleDB8F6C89
+  RegisterFunction735506DF:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: amazon-sagemaker-safe-deployment-pipeline
+        S3Key: ab-testing-pipeline/assets/ab-testing-api.zip
+      Role:
+        Fn::GetAtt:
+          - RegisterFunctionServiceRoleDB8F6C89
+          - Arn
+      Environment:
+        Variables:
+          METRICS_TABLE:
+            Ref: MetricsTable2972A477
+          DELIVERY_STREAM_NAME: ab-testing-events-dev
+          STAGE_NAME: dev
+          LOG_LEVEL: INFO
+          ENDPOINT_PREFIX: sagemaker-
+      Handler: lambda_register.lambda_handler
+      Layers:
+        - Ref: XRayLayer96133D82
+      MemorySize: 768
+      Runtime: python3.7
+      Timeout: 300
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - RegisterFunctionServiceRoleDefaultPolicyC4352E3C
+      - RegisterFunctionServiceRoleDB8F6C89
+  EndpointRule5D281113:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Rule to register an Amazon SageMaker Endpoint when it is created, updated or deleted.
+      EventPattern:
+        detail:
+          EndpointStatus:
+            - IN_SERVICE
+            - DELETING
+        detail-type:
+          - SageMaker Endpoint State Change
+        source:
+          - aws.sagemaker
+      Name: sagemaker-ab-testing-endpoint-dev
+      State: ENABLED
+      Targets:
+        - Arn:
+            Fn::GetAtt:
+              - RegisterFunction735506DF
+              - Arn
+          Id: Target0
+  EndpointRuleAllowEventRuleabtestingapiRegisterFunction1A6C89E1C3916C00:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - RegisterFunction735506DF
+          - Arn
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+          - EndpointRule5D281113
+          - Arn
+  S3Logs29CBC2E9:
+    Type: AWS::S3::Bucket
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  S3LogsNotificationsED6FAF9D:
+    Type: Custom::S3BucketNotifications
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - BucketNotificationsHandler050a0587b7544547bf325f094a3db8347ECC3691
+          - Arn
+      BucketName:
+        Ref: S3Logs29CBC2E9
+      NotificationConfiguration:
+        LambdaFunctionConfigurations:
+          - Events:
+              - s3:ObjectCreated:*
+            LambdaFunctionArn:
+              Fn::GetAtt:
+                - MetricsFunction5338A29D
+                - Arn
+    DependsOn:
+      - S3LogsAllowBucketNotificationsToabtestingapiMetricsFunction501E575646BCC9F2
+  S3LogsAllowBucketNotificationsToabtestingapiMetricsFunction501E575646BCC9F2:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - MetricsFunction5338A29D
+          - Arn
+      Principal: s3.amazonaws.com
+      SourceAccount:
+        Ref: AWS::AccountId
+      SourceArn:
+        Fn::GetAtt:
+          - S3Logs29CBC2E9
+          - Arn
+  KinesisFirehoseRole0891766E:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+        Version: "2012-10-17"
+  KinesisFirehoseRoleDefaultPolicy9DF4ED0B:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:AbortMultipartUpload
+              - s3:GetBucketLocation
+              - s3:GetObject
+              - s3:ListBucket
+              - s3:ListBucketMultipartUploads
+              - s3:PutObject
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - S3Logs29CBC2E9
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - S3Logs29CBC2E9
+                        - Arn
+                    - /*
+          - Action: logs:PutLogEvents
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:"
+                  - Ref: AWS::Partition
+                  - ":logs:"
+                  - Ref: AWS::Region
+                  - ":"
+                  - Ref: AWS::AccountId
+                  - ":log-group:"
+                  - Ref: FirehoseLogGroup1B45149B
+                  - ":log-stream:"
+                  - Ref: FirehoseLogGroupApiEventsFB8B70B0
+        Version: "2012-10-17"
+      PolicyName: KinesisFirehoseRoleDefaultPolicy9DF4ED0B
+      Roles:
+        - Ref: KinesisFirehoseRole0891766E
+  FirehoseLogGroup1B45149B:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 731
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  FirehoseLogGroupApiEventsFB8B70B0:
+    Type: AWS::Logs::LogStream
+    Properties:
+      LogGroupName:
+        Ref: FirehoseLogGroup1B45149B
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+  KensisLogs:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: ab-testing-events-dev
+      S3DestinationConfiguration:
+        BucketARN:
+          Fn::GetAtt:
+            - S3Logs29CBC2E9
+            - Arn
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 1
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName:
+            Ref: FirehoseLogGroup1B45149B
+          LogStreamName:
+            Ref: FirehoseLogGroupApiEventsFB8B70B0
+        CompressionFormat: GZIP
+        Prefix: dev/
+        RoleARN:
+          Fn::GetAtt:
+            - KinesisFirehoseRole0891766E
+            - Arn
+  MetricsFunctionServiceRoleE5E38475:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  MetricsFunctionServiceRoleDefaultPolicy2910AFFD:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - xray:PutTraceSegments
+              - xray:PutTelemetryRecords
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - dynamodb:BatchWriteItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - MetricsTable2972A477
+                  - Arn
+              - Ref: AWS::NoValue
+          - Action: cloudwatch:PutMetricData
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - S3Logs29CBC2E9
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - S3Logs29CBC2E9
+                        - Arn
+                    - /*
+        Version: "2012-10-17"
+      PolicyName: MetricsFunctionServiceRoleDefaultPolicy2910AFFD
+      Roles:
+        - Ref: MetricsFunctionServiceRoleE5E38475
+  MetricsFunction5338A29D:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: amazon-sagemaker-safe-deployment-pipeline
+        S3Key: ab-testing-pipeline/assets/ab-testing-api.zip
+      Role:
+        Fn::GetAtt:
+          - MetricsFunctionServiceRoleE5E38475
+          - Arn
+      Environment:
+        Variables:
+          METRICS_TABLE:
+            Ref: MetricsTable2972A477
+          DELIVERY_STREAM_NAME: ab-testing-events-dev
+          LOG_LEVEL: INFO
+      Handler: lambda_metrics.lambda_handler
+      Layers:
+        - Ref: XRayLayer96133D82
+      MemorySize: 768
+      Runtime: python3.7
+      Timeout: 300
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - MetricsFunctionServiceRoleDefaultPolicy2910AFFD
+      - MetricsFunctionServiceRoleE5E38475
+  BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleDefaultPolicy2CF63D36:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: s3:PutBucketNotification
+            Effect: Allow
+            Resource: "*"
+        Version: "2012-10-17"
+      PolicyName: BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleDefaultPolicy2CF63D36
+      Roles:
+        - Ref: BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC
+  BucketNotificationsHandler050a0587b7544547bf325f094a3db8347ECC3691:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: AWS CloudFormation handler for "Custom::S3BucketNotifications" resources (@aws-cdk/aws-s3)
+      Code:
+        ZipFile: >-
+          exports.handler = (event, context) => {
+              // eslint-disable-next-line @typescript-eslint/no-require-imports, import/no-extraneous-dependencies
+              const s3 = new (require('aws-sdk').S3)();
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              const https = require('https');
+              // eslint-disable-next-line @typescript-eslint/no-require-imports
+              const url = require('url');
+              log(JSON.stringify(event, undefined, 2));
+              const props = event.ResourceProperties;
+              if (event.RequestType === 'Delete') {
+                  props.NotificationConfiguration = {}; // this is how you clean out notifications
+              }
+              const req = {
+                  Bucket: props.BucketName,
+                  NotificationConfiguration: props.NotificationConfiguration,
+              };
+              return s3.putBucketNotificationConfiguration(req, (err, data) => {
+                  log({ err, data });
+                  if (err) {
+                      return submitResponse('FAILED', err.message + `\nMore information in CloudWatch Log Stream: ${context.logStreamName}`);
+                  }
+                  else {
+                      return submitResponse('SUCCESS');
+                  }
+              });
+              function log(obj) {
+                  console.error(event.RequestId, event.StackId, event.LogicalResourceId, obj);
+              }
+              // eslint-disable-next-line max-len
+              // adapted from https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-code.html#cfn-lambda-function-code-cfnresponsemodule
+              // to allow sending an error message as a reason.
+              function submitResponse(responseStatus, reason) {
+                  const responseBody = JSON.stringify({
+                      Status: responseStatus,
+                      Reason: reason || 'See the details in CloudWatch Log Stream: ' + context.logStreamName,
+                      PhysicalResourceId: event.PhysicalResourceId || event.LogicalResourceId,
+                      StackId: event.StackId,
+                      RequestId: event.RequestId,
+                      LogicalResourceId: event.LogicalResourceId,
+                      NoEcho: false,
+                  });
+                  log({ responseBody });
+                  const parsedUrl = url.parse(event.ResponseURL);
+                  const options = {
+                      hostname: parsedUrl.hostname,
+                      port: 443,
+                      path: parsedUrl.path,
+                      method: 'PUT',
+                      headers: {
+                          'content-type': '',
+                          'content-length': responseBody.length,
+                      },
+                  };
+                  const request = https.request(options, (r) => {
+                      log({ statusCode: r.statusCode, statusMessage: r.statusMessage });
+                      context.done();
+                  });
+                  request.on('error', (error) => {
+                      log({ sendError: error });
+                      context.done();
+                  });
+                  request.write(responseBody);
+                  request.end();
+              }
+          };
+      Handler: index.handler
+      Role:
+        Fn::GetAtt:
+          - BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC
+          - Arn
+      Runtime: nodejs12.x
+      Timeout: 300
+    DependsOn:
+      - BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleDefaultPolicy2CF63D36
+      - BucketNotificationsHandler050a0587b7544547bf325f094a3db834RoleB6FB88EC
+  CDKMetadata:
+    Type: AWS::CDK::Metadata
+    Properties:
+      Analytics: v2:deflate64:H4sIAAAAAAAAE1WQy27CMBBFv4W9MUJUqrorULUbqiKoujfOEKaJPZEfUMvKv9d2QpWufObhuXdmyZ8e+HL2LG52LqtmESUZ4PHohGzYASx5I4Ftz/rDu847tiVtnfHS5dy0ngoVOiTdszwrVkELRdWJx09xaktLgZ61Qp0qweNOBDBfYGz6lMv/4levpRsLU96DUWht0UGheDzQMLy8e2pRhtJXKHnpsBYObiJkwSycTLt1h6P/O66lJK8de4GupaBAlwUnUbpIXYQGuK++ETbJGvoJ02P88Tu4C1U5NVDP4Jqm2eTbj759vold8bjxsoEiO1C6FNWpc0f1myHflRvdOcHRGRBqzA5BzxrUYNGe0cCFLPCyRItXMGFs6dk+JCt6seKPfDX7tohzk1ZHBfwwvL/DlTIeFQIAAA==
+    Condition: CDKMetadataAvailable
+Outputs:
+  ApiEndpoint4F160690:
+    Value:
+      Fn::Join:
+        - ""
+        - - https://
+          - Ref: ApiF70053CD
+          - .execute-api.
+          - Ref: AWS::Region
+          - "."
+          - Ref: AWS::URLSuffix
+          - /
+          - Ref: ApiDeploymentStagedev51EE5D56
+          - /
+  RegisterLambda:
+    Value:
+      Ref: RegisterFunction735506DF
+Conditions:
+  CDKMetadataAvailable:
+    Fn::Or:
+      - Fn::Or:
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - af-south-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-east-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-northeast-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-northeast-2
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-south-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-southeast-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-southeast-2
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ca-central-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - cn-north-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - cn-northwest-1
+      - Fn::Or:
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-central-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-north-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-south-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-west-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-west-2
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-west-3
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - me-south-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - sa-east-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - us-east-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - us-east-2
+      - Fn::Or:
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - us-west-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - us-west-2
+

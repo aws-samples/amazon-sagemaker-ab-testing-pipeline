@@ -43,6 +43,11 @@ class ApiStack(core.Stack):
         delivery_stream_name = f"{api_name}-events-{stage_name}"
         log_stream_name = "ApiEvents"
 
+        # Optionally get resources for public api and layer code
+        asset_bucket_name = self.node.try_get_context("asset_bucket_name")
+        asset_api_key = self.node.try_get_context("asset_api_key")
+        asset_xray_key = self.node.try_get_context("asset_xray_key")
+
         assignment_table = aws_dynamodb.Table(
             self,
             "AssignmentTable",
@@ -73,14 +78,31 @@ class ApiStack(core.Stack):
             removal_policy=core.RemovalPolicy.DESTROY,
         )
 
+        if asset_bucket_name:
+            asset_bucket = aws_s3.Bucket.from_bucket_name(
+                self, "Assets", bucket_name=asset_bucket_name
+            )
+
+        # Either load xray code from s3 bucket/key or local asset
+        if asset_bucket and asset_xray_key:
+            xray_code = aws_lambda.AssetCode.from_bucket(asset_bucket, asset_xray_key)
+        else:
+            xray_code = aws_lambda.AssetCode.from_asset("./layers")
+
         # Create lambda layer for "aws-xray-sdk" and latest "boto3"
         xray_layer = aws_lambda.LayerVersion(
             self,
             "XRayLayer",
-            code=aws_lambda.AssetCode.from_asset("layers"),
+            code=xray_code,
             compatible_runtimes=[aws_lambda.Runtime.PYTHON_3_7],
             description="A layer containing AWS X-Ray SDK for Python",
         )
+
+        # Either load api lambda code from s3 bucket/key or local file
+        if asset_bucket and asset_api_key:
+            api_code = aws_lambda.AssetCode.from_bucket(asset_bucket, asset_api_key)
+        else:
+            api_code = aws_lambda.AssetCode.from_asset("./lambda/api")
 
         # Create Lambda function to read from assignment and metrics table, log metrics
         # 2048MB is ~3% higher than 768 MB, it runs 2.5x faster
@@ -88,7 +110,7 @@ class ApiStack(core.Stack):
         lambda_invoke = aws_lambda.Function(
             self,
             "ApiFunction",
-            code=aws_lambda.AssetCode.from_asset("lambda/api"),
+            code=api_code,
             handler="lambda_invoke.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_7,
             timeout=core.Duration.seconds(api_lambda_timeout),
@@ -137,7 +159,7 @@ class ApiStack(core.Stack):
         lambda_register = aws_lambda.Function(
             self,
             "RegisterFunction",
-            code=aws_lambda.AssetCode.from_asset("lambda/api"),
+            code=api_code,
             handler="lambda_register.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_7,
             timeout=core.Duration.seconds(metrics_lambda_timeout),
@@ -287,7 +309,7 @@ class ApiStack(core.Stack):
         lambda_metrics = aws_lambda.Function(
             self,
             "MetricsFunction",
-            code=aws_lambda.AssetCode.from_asset("lambda/api"),
+            code=api_code,
             handler="lambda_metrics.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_7,
             timeout=core.Duration.seconds(metrics_lambda_timeout),

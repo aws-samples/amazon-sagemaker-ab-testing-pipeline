@@ -1,0 +1,160 @@
+Parameters:
+  ExecutionRoleArn:
+    Type: String
+    Description: The SageMaker Studio execution role
+  PortfolioName:
+    Type: String
+    Default: SageMaker Organization Templates
+    Description: The name of the portfolio
+  PortfolioOwner:
+    Type: String
+    Default: administrator
+    Description: The owner of the portfolio.
+  ProductVersion:
+    Type: String
+    Default: "1.0"
+    Description: The product version to deploy
+Resources:
+  Portfolio:
+    Type: AWS::ServiceCatalog::Portfolio
+    Properties:
+      DisplayName:
+        Ref: PortfolioName
+      ProviderName:
+        Ref: PortfolioOwner
+      Description: Organization templates for AB Testing pipeline
+  Product:
+    Type: AWS::ServiceCatalog::CloudFormationProduct
+    Properties:
+      Name: A/B Testing Deployment Pipeline
+      Owner:
+        Ref: PortfolioOwner
+      ProvisioningArtifactParameters:
+        - Info:
+            LoadTemplateFromURL: s3://amazon-sagemaker-safe-deployment-pipeline/ab-testing-pipeline/ab-testing-pipeline.yml
+          Name:
+            Ref: ProductVersion
+      Description: Amazon SageMaker Project for A/B Testing models
+      Tags:
+        - Key: sagemaker:studio-visibility
+          Value: "true"
+  ProductAssoication:
+    Type: AWS::ServiceCatalog::PortfolioProductAssociation
+    Properties:
+      PortfolioId:
+        Ref: Portfolio
+      ProductId:
+        Ref: Product
+  PortfolioPrincipalAssociation:
+    Type: AWS::ServiceCatalog::PortfolioPrincipalAssociation
+    Properties:
+      PortfolioId:
+        Ref: Portfolio
+      PrincipalARN:
+        Ref: ExecutionRoleArn
+      PrincipalType: IAM
+    DependsOn:
+      - Product
+  LaunchRoleConstraint:
+    Type: AWS::ServiceCatalog::LaunchRoleConstraint
+    Properties:
+      PortfolioId:
+        Ref: Portfolio
+      ProductId:
+        Ref: Product
+      Description:
+        Fn::Join:
+          - ""
+          - - "Launch as arn:"
+            - Ref: AWS::Partition
+            - ":iam::"
+            - Ref: AWS::AccountId
+            - :role/service-role/AmazonSageMakerServiceCatalogProductsLaunchRole
+      RoleArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":iam::"
+            - Ref: AWS::AccountId
+            - :role/service-role/AmazonSageMakerServiceCatalogProductsLaunchRole
+    DependsOn:
+      - PortfolioPrincipalAssociation
+  CDKMetadata:
+    Type: AWS::CDK::Metadata
+    Properties:
+      Analytics: v2:deflate64:H4sIAAAAAAAAE12OwYrCUAxFv8X984koiDsHYVazKJ0vCGmqGV8TycsbGUr/fWwrCq4C9557yDrut3G9OMAtL7G5rHpUo9h/O+AlHFupwKAjJws1ZS2GFI4q2a2gj/0rbeVeNOysMoRRl8l+GQnBIekp9qNNzVtNrBOetDSfah2Mm8q0eTif1CP7yFmRJ+qtZkG+QnoDvqAInmtNNL8KLD4Mofrzs8pqE3dxs/jJzEsr4txRrOf7DziamJkMAQAA
+    Condition: CDKMetadataAvailable
+Conditions:
+  CDKMetadataAvailable:
+    Fn::Or:
+      - Fn::Or:
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - af-south-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-east-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-northeast-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-northeast-2
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-south-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-southeast-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-southeast-2
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ca-central-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - cn-north-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - cn-northwest-1
+      - Fn::Or:
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-central-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-north-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-south-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-west-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-west-2
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-west-3
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - me-south-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - sa-east-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - us-east-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - us-east-2
+      - Fn::Or:
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - us-west-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - us-west-2
+

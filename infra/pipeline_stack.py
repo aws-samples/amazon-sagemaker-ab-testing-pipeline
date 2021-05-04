@@ -19,10 +19,13 @@ class PipelineStack(core.Stack):
         self,
         scope: core.Construct,
         construct_id: str,
-        # deployment_asset: s3_assets.Asset,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        # Optionally get resources for seed bucket and key
+        asset_bucket_name = self.node.try_get_context("asset_bucket_name")
+        asset_seed_key = self.node.try_get_context("asset_seed_key")
 
         # Create Required parameters for sagemaker projects
         # see: https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-projects-templates-custom.html
@@ -52,20 +55,21 @@ class PipelineStack(core.Stack):
             description="The stage name.",
             default="dev",
         )
-        seed_bucket = core.CfnParameter(
-            self,
-            "CodeCommitSeedBucket",
-            type="String",
-            description="The optional s3 seed bucket",
-            min_length=1,
-        )
-        seed_key = core.CfnParameter(
-            self,
-            "CodeCommitSeedKey",
-            type="String",
-            description="The optional s3 seed key",
-            min_length=1,
-        )
+        if not (asset_bucket_name and asset_seed_key):
+            asset_bucket_name = core.CfnParameter(
+                self,
+                "CodeCommitSeedBucket",
+                type="String",
+                description="The optional s3 seed bucket",
+                min_length=1,
+            ).value_as_string
+            asset_seed_key = core.CfnParameter(
+                self,
+                "CodeCommitSeedKey",
+                type="String",
+                description="The optional s3 seed key",
+                min_length=1,
+            ).value_as_string
 
         # Get the service catalog role for all permssions (if None CDK will create new roles)
         # CodeBuild and CodePipeline resources need to start with "sagemaker-" to be within default policy
@@ -86,8 +90,8 @@ class PipelineStack(core.Stack):
             repository_description="Amazon SageMaker A/B testing pipeline",
             code=codecommit.CfnRepository.CodeProperty(
                 s3=codecommit.CfnRepository.S3Property(
-                    bucket=seed_bucket.value_as_string,
-                    key=seed_key.value_as_string,
+                    bucket=asset_bucket_name,
+                    key=asset_seed_key,
                     object_version=None,
                 ),
                 branch_name=branch_name,

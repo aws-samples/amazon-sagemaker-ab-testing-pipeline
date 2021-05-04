@@ -19,6 +19,11 @@ class ServiceCatalogStack(core.Stack):
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        # Optionally get resources for public api and layer code
+        asset_bucket_name = self.node.try_get_context("asset_bucket_name")
+        asset_pipeline_key = self.node.try_get_context("asset_pipeline_key")
+        asset_seed_key = self.node.try_get_context("asset_seed_key")
+
         execution_role_arn = core.CfnParameter(
             self,
             "ExecutionRoleArn",
@@ -58,9 +63,12 @@ class ServiceCatalogStack(core.Stack):
             provider_name=portfolio_owner.value_as_string,
         )
 
-        asset = aws_s3_assets.Asset(
-            self, "TemplateAsset", path="./ab-testing-pipeline.yml"
-        )
+        if asset_bucket_name and asset_pipeline_key:
+            template_url = f"s3://{asset_bucket_name}/{asset_pipeline_key}"
+        else:
+            template_url = aws_s3_assets.Asset(
+                self, "TemplateAsset", path="./cfn/ab-testing-pipeline.yml"
+            ).s3_url
 
         product = aws_servicecatalog.CfnCloudFormationProduct(
             self,
@@ -71,7 +79,7 @@ class ServiceCatalogStack(core.Stack):
             provisioning_artifact_parameters=[
                 aws_servicecatalog.CfnCloudFormationProduct.ProvisioningArtifactPropertiesProperty(
                     name=product_version.value_as_string,
-                    info={"LoadTemplateFromURL": asset.s3_url},
+                    info={"LoadTemplateFromURL": template_url},
                 ),
             ],
             tags=[
@@ -112,17 +120,17 @@ class ServiceCatalogStack(core.Stack):
         )
         role_constraint.add_depends_on(portfolio_association)
 
-        # Create the deployment asset as an output to pass to pipeline stack
-        deployment_asset = aws_s3_assets.Asset(
-            self, "DeploymentAsset", path="./deployment_pipeline"
-        )
-
-        deployment_asset.grant_read(grantee=launch_role)
-
-        # Ouput the deployment bucket and key, for input into pipeline stack
-        core.CfnOutput(
-            self,
-            "CodeCommitSeedBucket",
-            value=deployment_asset.s3_bucket_name,
-        )
-        core.CfnOutput(self, "CodeCommitSeedKey", value=deployment_asset.s3_object_key)
+        # Create the seed asset for deployment pipeline if not provided
+        if not asset_seed_key:
+            deployment_asset = aws_s3_assets.Asset(
+                self, "DeploymentAsset", path="./deployment_pipeline"
+            )
+            deployment_asset.grant_read(grantee=launch_role)
+            core.CfnOutput(
+                self,
+                "CodeCommitSeedBucket",
+                value=deployment_asset.s3_bucket_name,
+            )
+            core.CfnOutput(
+                self, "CodeCommitSeedKey", value=deployment_asset.s3_object_key
+            )
