@@ -49,7 +49,7 @@ In addition to the above, you must specify the `champion` and `challenger` model
 
 These will be loaded from the two Model Package Groups in the registry that include the project name and suffixed with `champion` or `challenger` for example project name `ab-testing-pipeline` these model package groups in the sample notebook:
 
-![\[Model Registry\]](docs/ab-testing-pipeline-model-registry.png)
+![\[Model Registry\]](ab-testing-pipeline-model-registry.png)
 
 **Latest Approved Versions**
 
@@ -238,4 +238,4 @@ The API Lambda functions are instrumented with [AWS X-Ray](https://aws.amazon.co
 * Amazon SageMaker
 * Kinesis Firehose
 
-![\[AB Testing Pipeline X-Ray\]](docs/ab-testing-pipeline-xray.png)
+![\[AB Testing Pipeline X-Ray\]](ab-testing-pipeline-xray.png)

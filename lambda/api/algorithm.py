@@ -1,8 +1,9 @@
 import random
 import math
 
-# Consider modify these algorithms to be random operators that could be used with PlanOut
-# see: https://facebook.github.io/planout/docs/random-operators.html
+# Contains pure python class implementations for WeightedSampling, EpsilonGreedy, UCB1 and ThompsonSampling.
+# For maths and theory behind these algorithms see the following resource:
+# https://lilianweng.github.io/lil-log/2018/01/23/the-multi-armed-bandit-problem-and-its-solutions.html#ucb1
 
 
 class AlgorithmBase:
@@ -13,7 +14,7 @@ class AlgorithmBase:
     3. Thompson Smampling
     """
 
-    def __init__(self, variant_metrics):
+    def __init__(self, variant_metrics: list):
         pass
 
     @staticmethod
