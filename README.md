@@ -1,7 +1,8 @@
-
 # Amazon SageMaker A/B Testing Pipeline 
 
 This sample demonstrates how to setup an Amazon SageMaker MLOps deployment pipeline for A/B Testing of machine learning models.
+
+![Solution Overview](docs/ab-testing-solution-overview.png)
 
 The following are the high-level steps to deploy this solution:
 
@@ -88,13 +89,13 @@ sh install_layers.sh
 
 This will enabling sample request to visualize the access patterns and drill into any specific errors.
 
-![\[AB Testing Pipeline X-Ray\]](docs/ab-testing-pipeline-xray.png)
+![AB Testing Pipeline X-Ray](docs/ab-testing-pipeline-xray.png)
 
 ### Add Permissions for CDK
 
 AWS CDK requires permissions create AWS CloudFormation Stacks and the associated resources for your current execution role.  If you have cloned this notebook into SageMaker Studio, you will need to add an inline policy to your SageMaker Studio execution role.  You can find your user's role by browsing to the Studio dashboard.
 
-![\[AB Testing Pipeline Execution Role\]](docs/ab-testing-pipeline-execution-role.png)
+![AB Testing Pipeline Execution Role](docs/ab-testing-pipeline-execution-role.png)
 
 Browse to the [IAM](https://console.aws.amazon.com/iam) section in the console, and find this role.
 
@@ -219,11 +220,11 @@ In this section you will publish the AWS Service Catalog template and Deploy the
 
 In this step you will create a *Portfolio* and *Product* to provision a custom SageMaker MLOps Project template in the AWS Service Catalog and configure it so you can launch the project from within your SageMaker Studio domain. See more information on [customizing](docs/CUSTOM_TEMPLATE.md) the template, or import the template [manually](docs/SERVICE_CATALOG.md) into the AWS Service Catalog.
 
-![\[AB Testing Pipeline\]](docs/ab-testing-pipeline-deployment.png)
+![AB Testing Pipeline](docs/ab-testing-pipeline-deployment.png)
 
 Resources include:
-* **AWS CodeCommit** seeded with the source from the [deployment_pipeline](deployment_pipeline)
-* **AWS CodeBuild** to query the **Amazon SageMaker Model Registry** and output **AWS CloudFormation**.
+* **AWS CodeCommit** seeded with the source from the [deployment_pipeline](deployment_pipeline).
+* **AWS CodeBuild** to produce **AWS CloudFormation** for deploying the **Amazon SageMaker Endpoint**.
 * **Amazon CloudWatch Event** to trigger the **AWS CodePipeline** for endpoint deployment.
 
 Run the following command to deploy the MLOps project template, passing the required `ExecutionRoleArn` parameter.  You can copy this from your SageMaker Studio dashboard as show above.
@@ -245,7 +246,7 @@ This stack will output the `CodeCommitSeedBucket` and `CodeCommitSeedKey` which 
 
 In this step you will deploy an Amazon API Gateway and supporting resources to enable dynamic A/B Testing of any Amazon SageMaker endpoint that has multiple production variants.
 
-![\[AB Testing Architecture\]](docs/ab-testing-pipeline-architecture.png)
+![AB Testing Architecture](docs/ab-testing-pipeline-architecture.png)
 
 Resources include:
 
@@ -278,7 +279,7 @@ On the Create project page, SageMaker templates is chosen by default. This optio
 7. Choose **A/B Testing Deployment Pipeline**.
 8. Choose **Select project template**.
 
-![\[Select Template\]](docs/ab-testing-pipeline-sagemaker-template.png)
+![Select Template](docs/ab-testing-pipeline-sagemaker-template.png)
 
 9. In the **Project details** section, for **Name**, enter **ab-testing-pipeline**.
   - The project name must have 32 characters or fewer.
@@ -288,7 +289,7 @@ On the Create project page, SageMaker templates is chosen by default. This optio
   - For **CodeCommitSeedKey**, enter the `CodeCommitSeedKey` output from the `ab-testing-service-catalog` stack
 11. Choose Create project.
 
-![\[Create Project\]](docs/ab-testing-pipeline-sagemaker-project.png)
+![Create Project](docs/ab-testing-pipeline-sagemaker-project.png)
 
 `NOTE`: If you have recently updated your AWS Service Catalog Project, you may need to refresh SageMaker Studio to ensure it picks up the latest version of your template.
 
@@ -305,7 +306,7 @@ Now that your project is ready, it’s time to train, register and approve a mod
 3. Choose the Jupyter notebook you downloaded and upload it.
 4. Choose the notebook to open a new tab.
 
-![\[Upload File\]](docs/ab-testing-pipeline-upload-file.png)
+![Upload File](docs/ab-testing-pipeline-upload-file.png)
 
 This notebook will step you through the process of 
 1. Download a dataset
